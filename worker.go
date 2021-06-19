@@ -2,39 +2,21 @@ package gluon
 
 import (
 	"context"
-	"errors"
-	"log"
 	"sync"
-	"time"
 )
 
-type worker struct {
-	broker *Broker
+// Worker is the unit of work of a subscription task.
+//
+// Use as driver abstraction to make vendor operations.
+type Worker interface {
+	Execute(context.Context, *MessageHandler)
+	Close(context.Context, *sync.WaitGroup, chan<- error)
 }
 
-func newWorker(b *Broker) *worker {
-	return &worker{
-		broker: b,
-	}
-}
-
-func (w *worker) Execute(ctx context.Context, e *Entry, errChan chan<- error) {
-	go func() {
-		count := 2
-		for {
-			log.Printf("subscribing to %s from group %s", e.topic, e.group)
-			time.Sleep(time.Second * 3)
-			if count == 0 && e.topic == "foo-event" {
-				errChan <- errors.New("generic error")
-				break
-			}
-			count--
-		}
-	}()
-}
-
-func (w *worker) Close(ctx context.Context, wg *sync.WaitGroup, errChan chan<- error) {
-	log.Print("closing worker")
-	errChan <- errors.New("error while closing")
-	wg.Done()
+// WorkerFactory is an artifact which is responsible for allocating new vendor-specific workers.
+//
+// It should come with the driver.
+type WorkerFactory interface {
+	// New allocates a new vendor-specific worker
+	New(*Broker) Worker
 }

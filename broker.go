@@ -7,16 +7,20 @@ import (
 	"time"
 )
 
+// Broker is a component which manages all message-driven operations of the current system.
+//
+// To start subscribing to messages, it is required to do that through a broker.
+//
+// In addition, it contains configurations and default values for specific Gluon operations.
 type Broker struct {
-	Registry    *Registry
-	Publisher   Publisher
-	BaseContext context.Context
+	Registry      *Registry
+	BaseContext   context.Context
+	WorkerFactory WorkerFactory
 
-	scheduler  *scheduler
-	doneChan   chan struct{}
-	errChan    chan error
-	mu         sync.Mutex
-	inShutdown atomicBool
+	scheduler      *scheduler
+	doneChan       chan struct{}
+	mu             sync.Mutex
+	isShuttingDown atomicBool
 }
 
 var (
@@ -24,26 +28,31 @@ var (
 )
 
 var (
+	// ErrBrokerClosed the given broker has been closed and cannot execute the given operation
 	ErrBrokerClosed = errors.New("broker is closed")
 )
 
+// NewBroker allocates a new broker
 func NewBroker() *Broker {
 	return &Broker{
-		Registry:   NewRegistry(),
-		mu:         sync.Mutex{},
-		inShutdown: 0,
+		Registry:       NewRegistry(),
+		mu:             sync.Mutex{},
+		doneChan:       make(chan struct{}),
+		isShuttingDown: 0,
 	}
 }
 
-func (b *Broker) Topic(t string) *Entry {
+// Topic sets a new message handler using the given parameter as key (aka. topic)
+func (b *Broker) Topic(t string) *MessageHandler {
 	return b.Registry.Topic(t)
 }
 
-func (b *Broker) Event(e IntegrationEvent) *Entry {
-	return b.Registry.Event(e)
+// Message sets a new message handler using properties of the given message
+func (b *Broker) Message(m Message) *MessageHandler {
+	return b.Registry.Message(m)
 }
 
-// ListenAndServe starts listening to the given Consumer(s) concurrently-safe
+// ListenAndServe starts subscription tasks concurrently safely
 func (b *Broker) ListenAndServe() error {
 	if b.shuttingDown() {
 		return ErrBrokerClosed
@@ -51,49 +60,47 @@ func (b *Broker) ListenAndServe() error {
 	return b.Serve()
 }
 
-// Serve starts the broker components
+// Serve starts subscription tasks concurrently
 func (b *Broker) Serve() error {
-	if b.BaseContext == nil {
-		b.BaseContext = context.Background()
-	}
-
-	b.startScheduler(b.BaseContext)
-
-	go func() {
-		for err := range b.getErrChanLocked() {
-			if err != nil {
-				b.getDoneChanLocked() <- struct{}{} // stop broker
-			}
+	for {
+		if b.BaseContext == nil {
+			b.BaseContext = context.Background()
 		}
-	}()
+		b.startScheduler(b.BaseContext)
 
-	<-b.getDoneChanLocked()
-	return b.Shutdown(b.BaseContext)
+		<-b.getDoneChanLocked()
+		b.Shutdown(b.BaseContext)
+	}
 }
 
+// starts the task scheduler component
 func (b *Broker) startScheduler(ctx context.Context) {
 	b.scheduler = newScheduler(b)
 	for _, entries := range b.Registry.entries {
-		b.scheduler.ScheduleJobs(ctx, entries, b.getErrChanLocked())
+		b.scheduler.ScheduleJobs(ctx, entries)
 	}
 }
 
-// Shutdown starts Broker graceful shutdown of its components
+// Shutdown triggers the given broker graceful shutdown
 func (b *Broker) Shutdown(ctx context.Context) error {
-	b.inShutdown.setTrue()
-	defer b.inShutdown.setFalse()
+	b.isShuttingDown.setTrue()
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.closeDoneChanLocked()
-	b.closeErrChanLocked()
+	go b.Registry.Close()
 
 	ticker := time.NewTicker(shutdownPollInterval)
 	defer ticker.Stop()
+
 	for {
-		if err := b.shutdownScheduler(ctx); err != nil {
-			return err
-		}
+		errChan := make(chan error)
+		go func() {
+			b.shutdownScheduler(ctx, errChan)
+		}()
+
 		select {
+		case err := <-errChan:
+			return err
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
@@ -101,12 +108,12 @@ func (b *Broker) Shutdown(ctx context.Context) error {
 	}
 }
 
-func (b *Broker) shutdownScheduler(ctx context.Context) error {
-	return b.scheduler.Shutdown(ctx)
+func (b *Broker) shutdownScheduler(ctx context.Context, errChan chan<- error) {
+	b.scheduler.Shutdown(ctx, errChan)
 }
 
 func (b *Broker) shuttingDown() bool {
-	return b.inShutdown.isSet()
+	return b.isShuttingDown.isSet()
 }
 
 func (b *Broker) getDoneChanLocked() chan struct{} {
@@ -116,27 +123,8 @@ func (b *Broker) getDoneChanLocked() chan struct{} {
 	return b.doneChan
 }
 
-func (b *Broker) getErrChanLocked() chan error {
-	if b.errChan == nil {
-		b.errChan = make(chan error)
-	}
-	return b.errChan
-}
-
 func (b *Broker) closeDoneChanLocked() {
 	ch := b.getDoneChanLocked()
-	select {
-	case <-ch:
-		// Already closed. Don't close again.
-	default:
-		// Safe to close here. We're the only closer, guarded
-		// by s.mu.
-		close(ch)
-	}
-}
-
-func (b *Broker) closeErrChanLocked() {
-	ch := b.getErrChanLocked()
 	select {
 	case <-ch:
 		// Already closed. Don't close again.

@@ -7,6 +7,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 )
 
+// scheduler is a tasks scheduler for subscribing jobs
 type scheduler struct {
 	broker      *Broker
 	workerPool  sync.Pool
@@ -18,44 +19,48 @@ func newScheduler(b *Broker) *scheduler {
 		broker: b,
 		workerPool: sync.Pool{
 			New: func() interface{} {
-				return newWorker(b)
+				return b.WorkerFactory.New(b)
 			},
 		},
 		workerQueue: newAtomicQueue(),
 	}
 }
 
-func (s *scheduler) ScheduleJobs(ctx context.Context, entries []*Entry, errChan chan<- error) {
-	for _, e := range entries {
-		w := s.workerPool.New().(*worker)
+func (s *scheduler) ScheduleJobs(ctx context.Context, handlers []*MessageHandler) {
+	for _, h := range handlers {
+		w := s.workerPool.New().(Worker)
 		s.workerQueue.push(w)
-		go w.Execute(ctx, e, errChan)
+		go w.Execute(ctx, h)
 	}
 }
 
-func (s *scheduler) Shutdown(ctx context.Context) error {
+func (s *scheduler) Shutdown(ctx context.Context, errChan chan<- error) {
 	errs := &multierror.Error{}
-	errChan := make(chan error) // local err stream, DO NOT use Broker err stream as it triggers shutdown
+	errSchedulerChan := make(chan error)
+	defer s.cleanMemoryResources()
+	defer close(errChan)
 	wg := &sync.WaitGroup{}
 	for i := 0; i < s.workerQueue.length; i++ {
 		wg.Add(1)
-		w := s.workerQueue.get(i).(*worker)
-		go w.Close(ctx, wg, errChan) // start greceful shutdown in parallel
+		w := s.workerQueue.get(i).(Worker)
+		go w.Close(ctx, wg, errSchedulerChan) // start greceful shutdown in parallel
 	}
-	go func() {
-		for err := range errChan {
-			errs = multierror.Append(err, errs)
-		}
-	}()
+	go s.aggregateErrorStream(errSchedulerChan, errs)
 	wg.Wait()
-	s.cleanMemoryResources()
-	close(errChan)
-	return errs.ErrorOrNil()
+	errChan <- errs.ErrorOrNil()
+}
+
+func (s *scheduler) aggregateErrorStream(errChan <-chan error, errs *multierror.Error) {
+	for err := range errChan {
+		if err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
 }
 
 func (s *scheduler) cleanMemoryResources() {
 	for i := 0; i < s.workerQueue.length; i++ {
-		w := s.workerQueue.pop().(*worker)
+		w := s.workerQueue.pop().(Worker)
 		s.workerPool.Put(w)
 	}
 }

@@ -8,24 +8,30 @@ import (
 	"time"
 
 	"github.com/neutrinocorp/gluon"
+	"github.com/neutrinocorp/gluon/gmemory"
 )
 
 func main() {
 	b := gluon.NewBroker()
+	b.WorkerFactory = gmemory.WorkerFactory{}
 
-	b.Topic("foo-event").Group("analytics-service").SubscriberFunc(func(ctx context.Context, e gluon.IntegrationEvent) error {
+	b.Topic("foo-event").Group("analytics-service").SubscriberFunc(func(ctx context.Context, msg gluon.Message) error {
+		log.Print(msg.Type)
 		return nil
 	})
 
-	b.Topic("bar-event").Group("organization-service").SubscriberFunc(func(ctx context.Context, e gluon.IntegrationEvent) error {
+	b.Topic("bar-event").Group("organization-service").SubscriberFunc(func(ctx context.Context, msg gluon.Message) error {
+		log.Print(msg.Type)
 		return nil
 	})
 
-	b.Topic("bar-event").Group("payment-service").SubscriberFunc(func(ctx context.Context, e gluon.IntegrationEvent) error {
+	b.Topic("bar-event").Group("payment-service").SubscriberFunc(func(ctx context.Context, msg gluon.Message) error {
+		log.Print(msg.Type)
 		return nil
 	})
 
-	b.Topic("baz-event").Group("user-service").SubscriberFunc(func(ctx context.Context, e gluon.IntegrationEvent) error {
+	b.Topic("baz-event").Group("user-service").SubscriberFunc(func(ctx context.Context, msg gluon.Message) error {
+		log.Print(msg.Type)
 		return nil
 	})
 
