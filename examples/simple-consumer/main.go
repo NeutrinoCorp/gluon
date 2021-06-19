@@ -43,6 +43,24 @@ func main() {
 		}
 	}()
 
+	go func() {
+		b.Publisher.PublishMessage(context.Background(), &gluon.Message{
+			Type: "bar-event",
+		})
+	}()
+
+	go func() {
+		b.Publisher.PublishMessage(context.Background(), &gluon.Message{
+			Type: "foo-event",
+		})
+	}()
+
+	go func() {
+		b.Publisher.PublishMessage(context.Background(), &gluon.Message{
+			Type: "baz-event",
+		})
+	}()
+
 	<-stop
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)

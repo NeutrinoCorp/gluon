@@ -4,52 +4,57 @@ import (
 	"sync"
 )
 
-type atomicQueue struct {
+// AtomicQueue concurrent safe FIFO queue
+type AtomicQueue struct {
 	queue  []interface{}
-	length int
+	Length int
 
 	mu sync.RWMutex
 }
 
-func newAtomicQueue() *atomicQueue {
-	return &atomicQueue{
+// NewAtomicQueue allocates a new FIFO queue
+func NewAtomicQueue() *AtomicQueue {
+	return &AtomicQueue{
 		queue:  make([]interface{}, 0),
-		length: 0,
+		Length: 0,
 		mu:     sync.RWMutex{},
 	}
 }
 
-func (q *atomicQueue) push(i interface{}) {
+// Push add a value to the queue's tail
+func (q *AtomicQueue) Push(i interface{}) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	q.queue = append(q.queue, i)
-	q.length++
+	q.Length++
 }
 
-func (q *atomicQueue) get(i int) interface{} {
+// Get retrieves an specific value from the queue using the given index without removing it
+func (q *AtomicQueue) Get(i int) interface{} {
 	q.mu.RLock()
 	defer q.mu.RUnlock()
-	if i > q.length {
+	if i > q.Length {
 		return nil
 	}
 	return q.queue[i]
 }
 
-func (q *atomicQueue) pop() interface{} {
+// Pop retrieves and removes the next value in the queue
+func (q *AtomicQueue) Pop() interface{} {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	if q.length == 0 {
+	if q.Length == 0 {
 		return nil
 	}
 
-	i := q.queue[q.length-1]
-	if q.length == 1 {
+	i := q.queue[q.Length-1]
+	if q.Length == 1 {
 		q.queue = make([]interface{}, 0)
-		q.length--
+		q.Length--
 		return i
 	}
 
-	q.queue = q.queue[:q.length-1]
-	q.length--
+	q.queue = q.queue[:q.Length-1]
+	q.Length--
 	return i
 }

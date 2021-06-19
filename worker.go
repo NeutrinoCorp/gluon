@@ -9,7 +9,7 @@ import (
 //
 // Use as driver abstraction to make vendor operations.
 type Worker interface {
-	Execute(context.Context, *MessageHandler)
+	Execute(context.Context, *sync.WaitGroup, *MessageHandler)
 	Close(context.Context, *sync.WaitGroup, chan<- error)
 }
 

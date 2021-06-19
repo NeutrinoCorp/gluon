@@ -1,12 +1,16 @@
 package gluon
 
 import (
+	"context"
 	"sync"
 )
 
 // Driver is the vendor implementation of the message broker.
 type Driver interface {
 	WorkerFactory
+	Publisher
+	SetBroker(b *Broker)
+	Close(context.Context) error
 }
 
 var (

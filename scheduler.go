@@ -11,7 +11,7 @@ import (
 type scheduler struct {
 	broker      *Broker
 	workerPool  sync.Pool
-	workerQueue *atomicQueue
+	workerQueue *AtomicQueue
 }
 
 func newScheduler(b *Broker) *scheduler {
@@ -22,15 +22,16 @@ func newScheduler(b *Broker) *scheduler {
 				return b.driver.NewWorker(b)
 			},
 		},
-		workerQueue: newAtomicQueue(),
+		workerQueue: NewAtomicQueue(),
 	}
 }
 
-func (s *scheduler) ScheduleJobs(ctx context.Context, handlers []*MessageHandler) {
+func (s *scheduler) ScheduleJobs(ctx context.Context, wg *sync.WaitGroup, handlers []*MessageHandler) {
+	wg.Add(len(handlers))
 	for _, h := range handlers {
 		w := s.workerPool.New().(Worker)
-		s.workerQueue.push(w)
-		go w.Execute(ctx, h)
+		s.workerQueue.Push(w)
+		go w.Execute(ctx, wg, h)
 	}
 }
 
@@ -40,9 +41,9 @@ func (s *scheduler) Shutdown(ctx context.Context, errChan chan<- error) {
 	defer s.cleanMemoryResources()
 	defer close(errChan)
 	wg := &sync.WaitGroup{}
-	for i := 0; i < s.workerQueue.length; i++ {
+	for i := 0; i < s.workerQueue.Length; i++ {
 		wg.Add(1)
-		w := s.workerQueue.get(i).(Worker)
+		w := s.workerQueue.Get(i).(Worker)
 		go w.Close(ctx, wg, errSchedulerChan) // start greceful shutdown in parallel
 	}
 	go s.aggregateErrorStream(errSchedulerChan, errs)
@@ -59,8 +60,8 @@ func (s *scheduler) aggregateErrorStream(errChan <-chan error, errs *multierror.
 }
 
 func (s *scheduler) cleanMemoryResources() {
-	for i := 0; i < s.workerQueue.length; i++ {
-		w := s.workerQueue.pop().(Worker)
+	for i := 0; i < s.workerQueue.Length; i++ {
+		w := s.workerQueue.Pop().(Worker)
 		s.workerPool.Put(w)
 	}
 }

@@ -4,35 +4,47 @@ import (
 	"context"
 	"log"
 	"sync"
-	"time"
 
 	"github.com/neutrinocorp/gluon"
 )
 
 type worker struct {
-	broker *gluon.Broker
+	broker      *gluon.Broker
+	driver      *Driver
+	messageChan chan *gluon.Message
 }
 
-func newWorker(b *gluon.Broker) *worker {
+func newWorker(b *gluon.Broker, d *Driver) *worker {
 	return &worker{
-		broker: b,
+		broker:      b,
+		driver:      d,
+		messageChan: make(chan *gluon.Message),
 	}
 }
 
 var _ gluon.Worker = &worker{}
 
-func (w *worker) Execute(ctx context.Context, h *gluon.MessageHandler) {
+func (w *worker) Execute(ctx context.Context, wg *sync.WaitGroup, h *gluon.MessageHandler) {
+	w.driver.bus.register(w, h)
+	defer wg.Done()
 	go func() {
-		for {
-			h.GetSubscriberFunc()(ctx, gluon.Message{
-				Type: h.GetTopic(),
-			})
-			time.Sleep(time.Minute * 1)
+		for msg := range w.messageChan {
+			if msg.Type != h.GetTopic() {
+				continue
+			}
+
+			if subFunc := h.GetSubscriberFunc(); subFunc != nil {
+				go subFunc(ctx, *msg)
+			}
+			if sub := h.GetSubscriber(); sub != nil {
+				go sub.Handle(ctx, *msg)
+			}
 		}
 	}()
 }
 
 func (w *worker) Close(ctx context.Context, wg *sync.WaitGroup, errChan chan<- error) {
+	close(w.messageChan)
 	log.Print("closing worker")
 	// errChan <- errors.New("generic handler error")
 	wg.Done()

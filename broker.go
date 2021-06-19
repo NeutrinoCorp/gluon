@@ -14,7 +14,9 @@ import (
 // In addition, it contains configurations and default values for specific Gluon operations.
 type Broker struct {
 	Registry    *Registry
+	Publisher   Publisher
 	BaseContext context.Context
+	IsReady     bool
 
 	scheduler      *scheduler
 	doneChan       chan struct{}
@@ -25,22 +27,23 @@ type Broker struct {
 
 var (
 	shutdownPollInterval = time.Millisecond * 500
-)
-
-var (
 	// ErrBrokerClosed the given broker has been closed and cannot execute the given operation
 	ErrBrokerClosed = errors.New("gluon: Broker is closed")
 )
 
 // NewBroker allocates a new broker
 func NewBroker() *Broker {
-	return &Broker{
+	b := &Broker{
 		Registry:       NewRegistry(),
+		Publisher:      DefaultDriver,
 		mu:             sync.Mutex{},
 		doneChan:       make(chan struct{}),
 		isShuttingDown: 0,
 		driver:         DefaultDriver,
+		IsReady:        false,
 	}
+	DefaultDriver.SetBroker(b)
+	return b
 }
 
 // Topic sets a new message handler using the given parameter as key (aka. topic)
@@ -77,9 +80,12 @@ func (b *Broker) Serve() error {
 // starts the task scheduler component
 func (b *Broker) startScheduler(ctx context.Context) {
 	b.scheduler = newScheduler(b)
+	wg := &sync.WaitGroup{}
 	for _, entries := range b.Registry.entries {
-		b.scheduler.ScheduleJobs(ctx, entries)
+		go b.scheduler.ScheduleJobs(ctx, wg, entries)
 	}
+	wg.Wait()
+	b.IsReady = true
 }
 
 // Shutdown triggers the given broker graceful shutdown
