@@ -19,7 +19,7 @@ func newScheduler(b *Broker) *scheduler {
 		broker: b,
 		workerPool: sync.Pool{
 			New: func() interface{} {
-				return b.WorkerFactory.New(b)
+				return b.driver.NewWorker(b)
 			},
 		},
 		workerQueue: newAtomicQueue(),

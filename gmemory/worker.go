@@ -9,14 +9,6 @@ import (
 	"github.com/neutrinocorp/gluon"
 )
 
-type WorkerFactory struct{}
-
-var _ gluon.WorkerFactory = &WorkerFactory{}
-
-func (f WorkerFactory) New(b *gluon.Broker) gluon.Worker {
-	return newWorker(b)
-}
-
 type worker struct {
 	broker *gluon.Broker
 }

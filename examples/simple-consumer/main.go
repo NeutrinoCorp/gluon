@@ -8,12 +8,11 @@ import (
 	"time"
 
 	"github.com/neutrinocorp/gluon"
-	"github.com/neutrinocorp/gluon/gmemory"
+	_ "github.com/neutrinocorp/gluon/gmemory"
 )
 
 func main() {
 	b := gluon.NewBroker()
-	b.WorkerFactory = gmemory.WorkerFactory{}
 
 	b.Topic("foo-event").Group("analytics-service").SubscriberFunc(func(ctx context.Context, msg gluon.Message) error {
 		log.Print(msg.Type)

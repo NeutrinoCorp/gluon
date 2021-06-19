@@ -6,19 +6,21 @@ import "time"
 // This struct is the one that will be send as body (or headers for some fields) to the actual
 // message broker.
 //
-// It has the CNCF's CloudEvent v1 specification body structure to comply with  most Event-Driven
-// systems.
+// It complies with the CNCF's CloudEvents specification to keep consistency between most Event-Driven
+// systems mechanisms.
+//
+// For more information, access to the following link: https://cloudevents.io
 type Message struct {
-	ID            string      `json:"id"`
-	Source        string      `json:"source"`
-	SpecVersion   string      `json:"specversion"`
-	Type          string      `json:"type"`
-	CorrelationID string      `json:"correlation_id"`
-	Trace         interface{} `json:"trace"`
+	ID          string `json:"id"`
+	Source      string `json:"source"`
+	SpecVersion string `json:"specversion"`
+	Type        string `json:"type"`
 
-	DataContentType *string    `json:"datacontenttype"`
-	DataSchema      *string    `json:"dataschema"`
-	Subject         *string    `json:"subject"`
-	Time            *time.Time `json:"time"`
-	Data            []byte     `json:"data"`
+	CorrelationID   string      `json:"correlation_id,omitempty"`
+	Trace           interface{} `json:"trace,omitempty"`
+	DataContentType *string     `json:"datacontenttype,omitempty"`
+	DataSchema      *string     `json:"dataschema,omitempty"`
+	Subject         *string     `json:"subject,omitempty"`
+	Time            *time.Time  `json:"time,omitempty"`
+	Data            []byte      `json:"data,omitempty"`
 }

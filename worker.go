@@ -18,5 +18,5 @@ type Worker interface {
 // It should come with the driver.
 type WorkerFactory interface {
 	// New allocates a new vendor-specific worker
-	New(*Broker) Worker
+	NewWorker(*Broker) Worker
 }

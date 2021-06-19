@@ -14,10 +14,10 @@ type Registry struct {
 }
 
 var (
-	// ErrTopicAlreadyExists the given topic is already present on the given registry
-	ErrTopicAlreadyExists = errors.New("topic already exists")
-	// ErrTopicNotFound the given topic is not present on the given registry
-	ErrTopicNotFound = errors.New("topic not found")
+	// ErrTopicAlreadyExists the given topic is already present on the Gluon registry
+	ErrTopicAlreadyExists = errors.New("gluon: Topic already exists")
+	// ErrTopicNotFound the given topic is not present on the Gluon registry
+	ErrTopicNotFound = errors.New("gluon: Topic not found")
 )
 
 // NewRegistry allocates a new message registry.
@@ -84,7 +84,7 @@ func (e *Registry) List(topic string) ([]*MessageHandler, error) {
 }
 
 // Close clear memory allocation
-func (e *Registry) Close() {
+func (e *Registry) close() {
 	for k := range e.entries {
 		delete(e.entries, k) // clean memory allocs
 	}

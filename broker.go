@@ -13,14 +13,14 @@ import (
 //
 // In addition, it contains configurations and default values for specific Gluon operations.
 type Broker struct {
-	Registry      *Registry
-	BaseContext   context.Context
-	WorkerFactory WorkerFactory
+	Registry    *Registry
+	BaseContext context.Context
 
 	scheduler      *scheduler
 	doneChan       chan struct{}
 	mu             sync.Mutex
 	isShuttingDown atomicBool
+	driver         Driver
 }
 
 var (
@@ -29,7 +29,7 @@ var (
 
 var (
 	// ErrBrokerClosed the given broker has been closed and cannot execute the given operation
-	ErrBrokerClosed = errors.New("broker is closed")
+	ErrBrokerClosed = errors.New("gluon: Broker is closed")
 )
 
 // NewBroker allocates a new broker
@@ -39,6 +39,7 @@ func NewBroker() *Broker {
 		mu:             sync.Mutex{},
 		doneChan:       make(chan struct{}),
 		isShuttingDown: 0,
+		driver:         DefaultDriver,
 	}
 }
 
@@ -87,7 +88,7 @@ func (b *Broker) Shutdown(ctx context.Context) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.closeDoneChanLocked()
-	go b.Registry.Close()
+	go b.Registry.close()
 
 	ticker := time.NewTicker(shutdownPollInterval)
 	defer ticker.Stop()
