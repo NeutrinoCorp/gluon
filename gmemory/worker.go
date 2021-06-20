@@ -2,7 +2,6 @@ package gmemory
 
 import (
 	"context"
-	"log"
 	"sync"
 
 	"github.com/neutrinocorp/gluon"
@@ -45,7 +44,5 @@ func (w *worker) Execute(ctx context.Context, wg *sync.WaitGroup, h *gluon.Messa
 
 func (w *worker) Close(ctx context.Context, wg *sync.WaitGroup, errChan chan<- error) {
 	close(w.messageChan)
-	log.Print("closing worker")
-	// errChan <- errors.New("generic handler error")
 	wg.Done()
 }

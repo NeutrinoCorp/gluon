@@ -26,35 +26,60 @@ type Broker struct {
 	driver         Driver
 }
 
+const shutdownPollInterval = time.Millisecond * 500
+
 var (
-	shutdownPollInterval = time.Millisecond * 500
 	// ErrBrokerClosed the given broker has been closed and cannot execute the given operation
 	ErrBrokerClosed = errors.New("gluon: Broker is closed")
 )
 
 // NewBroker allocates a new broker
-func NewBroker(name string) *Broker {
+func NewBroker(driver, name string, opts ...Option) *Broker {
+	options := newBrokerDefaultOptions(driver)
+	for _, o := range opts {
+		o.apply(&options)
+	}
+
 	b := &Broker{
 		Registry:       NewRegistry(),
-		Publisher:      DefaultDriver,
+		Publisher:      options.publisher,
 		mu:             sync.Mutex{},
 		doneChan:       make(chan struct{}),
 		isShuttingDown: 0,
-		driver:         DefaultDriver,
+		driver:         drivers[driver],
 		IsReady:        false,
 		Config: BrokerConfiguration{
-			Group:  name,
-			Source: "",
+			Group:     name,
+			Source:    options.source,
+			IDFactory: options.idFactory,
+			Marshaler: options.marshaler,
+			Networking: brokerNetworkConfig{
+				Hosts: options.hosts,
+			},
 			Resiliency: brokerResiliencyConfig{
 				MaxRetries:      3,
 				MinRetryBackoff: time.Second * 1,
 				MaxRetryBackoff: time.Second * 15,
 			},
-			IDFactory: RandomIDFactory{},
+			Behaviours: brokerBehaviours{},
 		},
 	}
-	DefaultDriver.SetBroker(b)
+	drivers[driver].SetBroker(b)
 	return b
+}
+
+// sets required default values for broker's ops
+func newBrokerDefaultOptions(driver string) options {
+	return options{
+		baseContext:     context.Background(),
+		idFactory:       RandomIDFactory{},
+		marshaler:       nil,
+		publisher:       drivers[driver],
+		hosts:           make([]string, 0),
+		maxRetries:      defaultMaxRetries,
+		minRetryBackoff: defaultMinRetryBackoff,
+		maxRetryBackoff: defaultMaxRetryBackoff,
+	}
 }
 
 // Topic sets a new message handler using the given parameter as key (aka. topic)

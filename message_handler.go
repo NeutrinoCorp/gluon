@@ -62,7 +62,7 @@ func (e *MessageHandler) MaxRetries(d int) *MessageHandler {
 
 // MinRetryBackoff sets the minimum backoff duration for each retry of the given handler.
 //
-// The default duration is 1 second but it is recommended to set the number properly based on business requirements.
+// The default duration is 500 milliseconds but it is recommended to set the number properly based on business requirements.
 //
 // More information about handling failures in Message-Driven applications can be found here: https://www.youtube.com/watch?v=SesEYHGhlLQ
 func (e *MessageHandler) MinRetryBackoff(d time.Duration) *MessageHandler {

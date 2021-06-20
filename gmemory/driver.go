@@ -8,24 +8,30 @@ import (
 )
 
 var (
-	defaultBus   *bus
-	busSingleton = &sync.Once{}
+	defaultBus       *bus
+	defaultPublisher *MemoryPublisher
+	busSingleton     = &sync.Once{}
 )
 
 func init() {
 	busSingleton.Do(func() {
 		defaultBus = newBus()
+		defaultPublisher = &MemoryPublisher{
+			bus: defaultBus,
+		}
 	})
 	defaultBus.start()
 
-	gluon.Register(&Driver{
-		bus: defaultBus,
+	gluon.Register("memory", &Driver{
+		bus:       defaultBus,
+		publisher: defaultPublisher,
 	})
 }
 
 type Driver struct {
-	bus    *bus
-	broker *gluon.Broker
+	bus       *bus
+	broker    *gluon.Broker
+	publisher gluon.Publisher
 }
 
 var _ gluon.Driver = &Driver{}
@@ -35,8 +41,7 @@ func (d *Driver) NewWorker(b *gluon.Broker) gluon.Worker {
 }
 
 func (d Driver) PublishMessage(ctx context.Context, msg *gluon.Message) error {
-	go d.bus.publish(msg)
-	return nil
+	return d.publisher.PublishMessage(ctx, msg)
 }
 
 func (d *Driver) SetBroker(b *gluon.Broker) {

@@ -12,6 +12,7 @@ type Marshaler interface {
 	Unmarshal(data, obj interface{}) error
 }
 
+// JSONMarshaler handles JSON codec parsing of messages
 type JSONMarshaler struct {
 }
 

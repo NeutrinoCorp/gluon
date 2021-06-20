@@ -2,16 +2,26 @@ package gluon
 
 import "time"
 
+// BrokerConfiguration Broker configuration options
 type BrokerConfiguration struct {
 	Group      string
 	Source     string
-	Resiliency brokerResiliencyConfig
 	IDFactory  IDFactory
 	Marshaler  Marshaler
+	Networking brokerNetworkConfig
+	Resiliency brokerResiliencyConfig
+	Behaviours brokerBehaviours
 }
 
 type brokerResiliencyConfig struct {
 	MaxRetries      int
 	MinRetryBackoff time.Duration
 	MaxRetryBackoff time.Duration
+}
+
+type brokerNetworkConfig struct {
+	Hosts []string
+}
+
+type brokerBehaviours struct {
 }
