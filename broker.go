@@ -17,6 +17,7 @@ type Broker struct {
 	Publisher   Publisher
 	BaseContext context.Context
 	IsReady     bool
+	Config      BrokerConfiguration
 
 	scheduler      *scheduler
 	doneChan       chan struct{}
@@ -32,7 +33,7 @@ var (
 )
 
 // NewBroker allocates a new broker
-func NewBroker() *Broker {
+func NewBroker(name string) *Broker {
 	b := &Broker{
 		Registry:       NewRegistry(),
 		Publisher:      DefaultDriver,
@@ -41,6 +42,16 @@ func NewBroker() *Broker {
 		isShuttingDown: 0,
 		driver:         DefaultDriver,
 		IsReady:        false,
+		Config: BrokerConfiguration{
+			Group:  name,
+			Source: "",
+			Resiliency: brokerResiliencyConfig{
+				MaxRetries:      3,
+				MinRetryBackoff: time.Second * 1,
+				MaxRetryBackoff: time.Second * 15,
+			},
+			IDFactory: RandomIDFactory{},
+		},
 	}
 	DefaultDriver.SetBroker(b)
 	return b

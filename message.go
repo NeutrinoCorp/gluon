@@ -9,7 +9,11 @@ import "time"
 // It complies with the CNCF's CloudEvents specification to keep consistency between most Event-Driven
 // systems mechanisms.
 //
-// For more information, access to the following link: https://cloudevents.io
+// In addition, it complies with Greg Young's EventStore transaction mechanisms to reduce
+// observability overhead when debugging transaction workflows (using correlation and causation IDs).
+//
+// For more information, access to the following link(s): https://cloudevents.io and
+// https://blog.arkency.com/correlation-id-and-causation-id-in-evented-systems/
 type Message struct {
 	ID          string `json:"id"`
 	Source      string `json:"source"`
@@ -17,10 +21,11 @@ type Message struct {
 	Type        string `json:"type"`
 
 	CorrelationID   string      `json:"correlation_id,omitempty"`
+	CausationID     string      `json:"causation_id,omitempty"`
 	Trace           interface{} `json:"trace,omitempty"`
-	DataContentType *string     `json:"datacontenttype,omitempty"`
-	DataSchema      *string     `json:"dataschema,omitempty"`
-	Subject         *string     `json:"subject,omitempty"`
-	Time            *time.Time  `json:"time,omitempty"`
-	Data            []byte      `json:"data,omitempty"`
+	DataContentType string      `json:"datacontenttype,omitempty"`
+	DataSchema      string      `json:"dataschema,omitempty"`
+	Subject         string      `json:"subject,omitempty"`
+	Time            time.Time   `json:"time,omitempty"`
+	Data            interface{} `json:"data,omitempty"`
 }
