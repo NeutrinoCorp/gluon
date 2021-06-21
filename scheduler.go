@@ -26,9 +26,9 @@ func newScheduler(b *Broker) *scheduler {
 	}
 }
 
-func (s *scheduler) ScheduleJobs(ctx context.Context, wg *sync.WaitGroup, handlers []*MessageHandler) {
-	wg.Add(len(handlers))
-	for _, h := range handlers {
+func (s *scheduler) ScheduleJobs(ctx context.Context, wg *sync.WaitGroup, consumers []*Consumer) {
+	wg.Add(len(consumers))
+	for _, h := range consumers {
 		w := s.workerPool.New().(Worker)
 		s.workerQueue.Push(w)
 		go w.Execute(ctx, wg, h)

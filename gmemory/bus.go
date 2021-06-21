@@ -24,14 +24,14 @@ func newBus() *bus {
 	}
 }
 
-func (b *bus) register(w *worker, h *gluon.MessageHandler) {
-	if _, ok := b.workerRegistry.Load(h.GetTopic()); !ok {
-		b.workerRegistry.Store(h.GetTopic(), []*worker{})
+func (b *bus) register(w *worker, c *gluon.Consumer) {
+	if _, ok := b.workerRegistry.Load(c.GetTopic()); !ok {
+		b.workerRegistry.Store(c.GetTopic(), []*worker{})
 	}
-	val, _ := b.workerRegistry.Load(h.GetTopic())
+	val, _ := b.workerRegistry.Load(c.GetTopic())
 	registry := val.([]*worker)
 	registry = append(registry, w)
-	b.workerRegistry.Store(h.GetTopic(), registry)
+	b.workerRegistry.Store(c.GetTopic(), registry)
 }
 
 func (b *bus) start() {

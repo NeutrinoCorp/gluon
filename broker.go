@@ -82,13 +82,13 @@ func newBrokerDefaultOptions(driver string) options {
 	}
 }
 
-// Topic sets a new message handler using the given parameter as key (aka. topic)
-func (b *Broker) Topic(t string) *MessageHandler {
+// Topic sets a new message consumer using the given parameter as key (aka. topic)
+func (b *Broker) Topic(t string) *Consumer {
 	return b.Registry.Topic(t)
 }
 
-// Message sets a new message handler using properties of the given message
-func (b *Broker) Message(m Message) *MessageHandler {
+// Message sets a new message consumer using properties of the given message
+func (b *Broker) Message(m Message) *Consumer {
 	return b.Registry.Message(m)
 }
 

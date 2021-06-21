@@ -23,19 +23,19 @@ func newWorker(b *gluon.Broker, d *Driver) *worker {
 
 var _ gluon.Worker = &worker{}
 
-func (w *worker) Execute(ctx context.Context, wg *sync.WaitGroup, h *gluon.MessageHandler) {
-	w.driver.bus.register(w, h)
+func (w *worker) Execute(ctx context.Context, wg *sync.WaitGroup, c *gluon.Consumer) {
+	w.driver.bus.register(w, c)
 	defer wg.Done()
 	go func() {
 		for msg := range w.messageChan {
-			if msg.Type != h.GetTopic() {
+			if msg.Type != c.GetTopic() {
 				continue
 			}
 
-			if subFunc := h.GetSubscriberFunc(); subFunc != nil {
+			if subFunc := c.GetSubscriberFunc(); subFunc != nil {
 				go subFunc(ctx, *msg)
 			}
-			if sub := h.GetSubscriber(); sub != nil {
+			if sub := c.GetSubscriber(); sub != nil {
 				go sub.Handle(ctx, *msg)
 			}
 		}

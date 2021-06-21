@@ -10,7 +10,7 @@ import (
 // A message might have up to N handlers.
 type Registry struct {
 	mu      sync.RWMutex
-	entries map[string][]*MessageHandler
+	entries map[string][]*Consumer
 }
 
 var (
@@ -24,68 +24,68 @@ var (
 func NewRegistry() *Registry {
 	return &Registry{
 		mu:      sync.RWMutex{},
-		entries: map[string][]*MessageHandler{},
+		entries: map[string][]*Consumer{},
 	}
 }
 
-// Message sets a new message handler using properties of the given message
-func (e *Registry) Message(msg Message) *MessageHandler {
-	return e.register(msg.Type, new(MessageHandler))
+// Message sets a new message consumer using properties of the given message
+func (r *Registry) Message(msg Message) *Consumer {
+	return r.register(msg.Type, new(Consumer))
 }
 
-// Topic sets a new message handler using the given parameter as key (aka. topic)
-func (e *Registry) Topic(topic string) *MessageHandler {
-	return e.register(topic, new(MessageHandler))
+// Topic sets a new message consumer using the given parameter as key (aka. topic)
+func (r *Registry) Topic(topic string) *Consumer {
+	return r.register(topic, new(Consumer))
 }
 
-// sets an entry using the given topic as key and the given handler
-func (e *Registry) register(topic string, handler *MessageHandler) *MessageHandler {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	handler.topic = topic
-	e.entries[topic] = append(e.entries[topic], handler)
-	return handler
+// sets an entry using the given topic as key and the given consumer
+func (r *Registry) register(topic string, c *Consumer) *Consumer {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	c.topic = topic
+	r.entries[topic] = append(r.entries[topic], c)
+	return c
 }
 
-// Register sets an entry from a message handler properties
-func (e *Registry) Register(handler *MessageHandler) error {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	if _, ok := e.entries[handler.topic]; ok {
+// Register sets an entry from a message consumer properties
+func (r *Registry) Register(c *Consumer) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if _, ok := r.entries[c.topic]; ok {
 		return ErrTopicAlreadyExists
 	}
 
-	e.entries[handler.topic] = append(e.entries[handler.topic], handler)
+	r.entries[c.topic] = append(r.entries[c.topic], c)
 	return nil
 }
 
 // Remove deletes an entry from the registry
-func (e *Registry) Remove(topic string) error {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	if _, ok := e.entries[topic]; !ok {
+func (r *Registry) Remove(topic string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if _, ok := r.entries[topic]; !ok {
 		return ErrTopicNotFound
 	}
 
-	delete(e.entries, topic)
+	delete(r.entries, topic)
 	return nil
 }
 
 // List retrieves all handlers from the given topic
-func (e *Registry) List(topic string) ([]*MessageHandler, error) {
-	e.mu.RLock()
-	defer e.mu.RUnlock()
+func (r *Registry) List(topic string) ([]*Consumer, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 
-	MessageHandler, ok := e.entries[topic]
+	c, ok := r.entries[topic]
 	if !ok {
 		return nil, ErrTopicNotFound
 	}
-	return MessageHandler, nil
+	return c, nil
 }
 
 // Close clear memory allocation
-func (e *Registry) close() {
-	for k := range e.entries {
-		delete(e.entries, k) // clean memory allocs
+func (r *Registry) close() {
+	for k := range r.entries {
+		delete(r.entries, k) // clean memory allocs
 	}
 }
