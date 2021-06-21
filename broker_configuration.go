@@ -1,6 +1,8 @@
 package gluon
 
-import "time"
+import (
+	"time"
+)
 
 // BrokerConfiguration Broker configuration options
 type BrokerConfiguration struct {
@@ -11,7 +13,6 @@ type BrokerConfiguration struct {
 	Marshaler      Marshaler
 	Networking     brokerNetworkConfig
 	Resiliency     brokerResiliencyConfig
-	Behaviours     brokerBehaviours
 }
 
 type brokerResiliencyConfig struct {
@@ -22,7 +23,4 @@ type brokerResiliencyConfig struct {
 
 type brokerNetworkConfig struct {
 	Hosts []string
-}
-
-type brokerBehaviours struct {
 }

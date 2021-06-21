@@ -30,28 +30,49 @@ func (e UserCreated) Topic() string {
 	return "neutrinocorp.user.event.user.created"
 }
 
+type PublisherLogger struct {
+	Next gluon.Publisher
+}
+
+var _ gluon.Publisher = PublisherLogger{}
+
+func (p PublisherLogger) PublishMessage(ctx context.Context, msg *gluon.Message) error {
+	log.Printf("stdout::Logger:publisher:%+v\n", msg)
+	return p.Next.PublishMessage(ctx, msg)
+}
+
+func logMiddleware(next gluon.Subscriber) gluon.Subscriber {
+	return gluon.SubscriberFunc(func(ctx context.Context, msg gluon.Message) error {
+		log.Printf("stdout::Logger:consumer:%+v\n", msg)
+		return next.Handle(ctx, msg)
+	})
+}
+
+var onUserCreatedAnalytics gluon.SubscriberFunc = func(ctx context.Context, msg gluon.Message) error {
+	e := UserCreated{}
+	err := json.Unmarshal(msg.Data.([]byte), &e)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func main() {
 	b := gluon.NewBroker("memory",
 		gluon.WithSource("org.neutrinocorp/user"),
 		gluon.WithSchemaRegistry("https://event-api.neutrinocorp.org/schemas"),
 		gluon.WithMarshaler(gluon.JSONMarshaler{}))
+	p := PublisherLogger{
+		Next: b.Publisher,
+	}
+	b.Publisher = p
 
 	event := UserCreated{}
 
-	b.Event(event).Group("analytics-service").SubscriberFunc(func(ctx context.Context, msg gluon.Message) error {
-		log.Printf("msg: %+v\n", msg)
-		e := UserCreated{}
-		log.Print(string(msg.Data.([]byte)))
-		err := json.Unmarshal(msg.Data.([]byte), &e)
-		if err != nil {
-			return err
-		}
-		log.Printf("%+v", e)
-		return nil
-	})
+	b.Event(event).Group("analytics-service").Subscriber(logMiddleware(onUserCreatedAnalytics))
 
 	b.Event(event).Group("organization-service").SubscriberFunc(func(ctx context.Context, msg gluon.Message) error {
-		log.Print(msg.Type)
+		log.Print("received user created at org service")
 		return nil
 	})
 

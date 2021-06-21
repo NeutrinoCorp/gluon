@@ -62,7 +62,6 @@ func NewBroker(driver string, opts ...Option) *Broker {
 				MinRetryBackoff: options.minRetryBackoff,
 				MaxRetryBackoff: options.maxRetryBackoff,
 			},
-			Behaviours: brokerBehaviours{},
 		},
 	}
 	drivers[driver].SetBroker(b)
