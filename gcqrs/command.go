@@ -78,5 +78,6 @@ func (b *CommandBus) Dispatch(ctx context.Context, cmd Command) (string, error) 
 		DataContentType: contentType,
 		Time:            time.Now().UTC(),
 		Data:            data,
+		DataSchema:      b.broker.Config.SchemaRegistry,
 	})
 }

@@ -18,6 +18,7 @@ type options struct {
 	marshaler       Marshaler
 	group           string
 	source          string
+	schemaRegistry  string
 	hosts           []string
 	maxRetries      int
 	minRetryBackoff time.Duration
@@ -87,6 +88,17 @@ func WithMarshaler(m Marshaler) Option {
 	return marshalerOption{
 		Marshaler: m,
 	}
+}
+
+type schemaOption string
+
+func (o schemaOption) apply(opts *options) {
+	opts.schemaRegistry = string(o)
+}
+
+// WithSchemaRegistry sets the base schema registry URL
+func WithSchemaRegistry(s string) Option {
+	return schemaOption(s)
 }
 
 type groupOption string

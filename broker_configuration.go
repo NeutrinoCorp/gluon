@@ -4,13 +4,14 @@ import "time"
 
 // BrokerConfiguration Broker configuration options
 type BrokerConfiguration struct {
-	Group      string
-	Source     string
-	IDFactory  IDFactory
-	Marshaler  Marshaler
-	Networking brokerNetworkConfig
-	Resiliency brokerResiliencyConfig
-	Behaviours brokerBehaviours
+	Group          string
+	Source         string
+	SchemaRegistry string
+	IDFactory      IDFactory
+	Marshaler      Marshaler
+	Networking     brokerNetworkConfig
+	Resiliency     brokerResiliencyConfig
+	Behaviours     brokerBehaviours
 }
 
 type brokerResiliencyConfig struct {

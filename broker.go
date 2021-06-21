@@ -49,10 +49,11 @@ func NewBroker(driver string, opts ...Option) *Broker {
 		driver:         drivers[driver],
 		IsReady:        false,
 		Config: BrokerConfiguration{
-			Group:     options.group,
-			Source:    options.source,
-			IDFactory: options.idFactory,
-			Marshaler: options.marshaler,
+			Group:          options.group,
+			Source:         options.source,
+			SchemaRegistry: options.schemaRegistry,
+			IDFactory:      options.idFactory,
+			Marshaler:      options.marshaler,
 			Networking: brokerNetworkConfig{
 				Hosts: options.hosts,
 			},
@@ -102,7 +103,26 @@ func (b *Broker) Publish(ctx context.Context, e Event) error {
 	if err != nil {
 		return err
 	}
+	return b.publish(ctx, id, id, id, e)
+}
 
+// PublishFromParent propagates the given event to the whole system through the message broker.
+//
+// Attach a parent to the given event as it improves observability.
+//
+// More information may be found here: https://blog.arkency.com/correlation-id-and-causation-id-in-evented-systems/
+func (b *Broker) PublishFromParent(ctx context.Context, causationID, correlationID string, e Event) error {
+	id, err := b.Config.IDFactory.NewID()
+	if err != nil {
+		return err
+	}
+	return b.publish(ctx, id, causationID, correlationID, e)
+}
+
+// Publish propagates the given event to the whole system through the message broker
+func (b *Broker) publish(ctx context.Context, id, causationID, correlationID string,
+	e Event) error {
+	var err error
 	var data interface{} = e
 	contentType := ""
 	if b.Config.Marshaler != nil {
@@ -115,13 +135,13 @@ func (b *Broker) Publish(ctx context.Context, e Event) error {
 
 	return b.Publisher.PublishMessage(ctx, &Message{
 		ID:              id,
-		CausationID:     id,
-		CorrelationID:   id,
+		CausationID:     causationID,
+		CorrelationID:   correlationID,
 		Source:          b.Config.Source + e.Source(),
 		Type:            e.Topic(),
 		SpecVersion:     CloudEventSpecVersion,
 		DataContentType: contentType,
-		DataSchema:      e.Schema(),
+		DataSchema:      b.Config.SchemaRegistry,
 		Subject:         e.Subject(),
 		Time:            time.Now().UTC(),
 		Data:            data,
