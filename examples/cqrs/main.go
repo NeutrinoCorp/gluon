@@ -77,7 +77,8 @@ func (c CreateUserCommandHandler) Handle(ctx context.Context, cmd gcqrs.Command)
 var _ gcqrs.CommandHandler = CreateUserCommandHandler{}
 
 func main() {
-	b := gluon.NewBroker("memory", "user-service")
+	b := gluon.NewBroker("memory", "user-service",
+		gluon.WithSource("org.neutrinocorp/cosmos/users"))
 	commandBus := gcqrs.NewCommandBus(b)
 	queryBus := gcqrs.NewQueryBus()
 

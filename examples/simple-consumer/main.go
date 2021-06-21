@@ -12,7 +12,8 @@ import (
 )
 
 func main() {
-	b := gluon.NewBroker("memory", "user-service")
+	b := gluon.NewBroker("memory", "user-service",
+		gluon.WithSource("org.neutrinocorp/cosmos/user"))
 
 	b.Topic("foo-event").Group("analytics-service").SubscriberFunc(func(ctx context.Context, msg gluon.Message) error {
 		log.Print(msg.Type)
