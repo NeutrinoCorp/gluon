@@ -40,13 +40,14 @@ func (s *scheduler) Shutdown(ctx context.Context, errChan chan<- error) {
 	errSchedulerChan := make(chan error)
 	defer s.cleanMemoryResources()
 	defer close(errChan)
+	go s.aggregateErrorStream(errSchedulerChan, errs)
+
 	wg := &sync.WaitGroup{}
 	for i := 0; i < s.workerQueue.Length; i++ {
 		wg.Add(1)
 		w := s.workerQueue.Get(i).(Worker)
 		go w.Close(ctx, wg, errSchedulerChan) // start greceful shutdown in parallel
 	}
-	go s.aggregateErrorStream(errSchedulerChan, errs)
 	wg.Wait()
 	errChan <- errs.ErrorOrNil()
 }
