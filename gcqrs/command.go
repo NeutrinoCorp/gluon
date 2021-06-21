@@ -7,31 +7,41 @@ import (
 	"github.com/neutrinocorp/gluon"
 )
 
+// Command unit which triggers an operation -or entity state mutation- within the given system.
+//
+// A command MUST have only one handler.
 type Command interface {
+	// Key command unique name
 	Key() string
 }
 
+// CommandHandler receives an specific command and executes derived logical tasks
 type CommandHandler interface {
+	// Command retrieves the command the given handler is attached to
 	Command() Command
+	// Handle execute operations of a command request
 	Handle(context.Context, Command) error
 }
 
+// CommandBus infrastructure component which intends to route commands to their respective handlers
 type CommandBus struct {
 	broker *gluon.Broker
 }
 
+// NewCommandBus allocates a new command bus
 func NewCommandBus(b *gluon.Broker) *CommandBus {
 	return &CommandBus{
 		broker: b,
 	}
 }
 
-func (c *CommandBus) Register(cmd Command, h CommandHandler) {
-	c.broker.Topic(cmd.Key()).Group(c.broker.Config.Group).
+// Register attaches a command to a command handler
+func (b *CommandBus) Register(cmd Command, h CommandHandler) {
+	b.broker.Topic(cmd.Key()).Group(b.broker.Config.Group).
 		SubscriberFunc(func(ctx context.Context, msg gluon.Message) error {
 			var cmdMsg Command
-			if c.broker.Config.Marshaler != nil && c.broker.Config.Marshaler.ContentType() == msg.DataContentType {
-				if err := c.broker.Config.Marshaler.Unmarshal(msg.Data, &cmdMsg); err != nil {
+			if b.broker.Config.Marshaler != nil && b.broker.Config.Marshaler.ContentType() == msg.DataContentType {
+				if err := b.broker.Config.Marshaler.Unmarshal(msg.Data, &cmdMsg); err != nil {
 					return err
 				}
 			} else {
@@ -41,28 +51,29 @@ func (c *CommandBus) Register(cmd Command, h CommandHandler) {
 		})
 }
 
-func (c *CommandBus) Exec(ctx context.Context, cmd Command) (string, error) {
-	id, err := c.broker.Config.IDFactory.NewID()
+// Dispatch makes a command request to the system
+func (b *CommandBus) Dispatch(ctx context.Context, cmd Command) (string, error) {
+	id, err := b.broker.Config.IDFactory.NewID()
 	if err != nil {
 		return "", err
 	}
 
 	var data interface{} = cmd
 	contentType := ""
-	if c.broker.Config.Marshaler != nil {
-		contentType = c.broker.Config.Marshaler.ContentType()
-		data, err = c.broker.Config.Marshaler.Marshal(cmd)
+	if b.broker.Config.Marshaler != nil {
+		contentType = b.broker.Config.Marshaler.ContentType()
+		data, err = b.broker.Config.Marshaler.Marshal(cmd)
 		if err != nil {
 			return "", err
 		}
 	}
 
-	return id, c.broker.Publisher.PublishMessage(ctx, &gluon.Message{
+	return id, b.broker.Publisher.PublishMessage(ctx, &gluon.Message{
 		ID:              id,
 		CorrelationID:   id,
 		CausationID:     id,
 		Type:            cmd.Key(),
-		Source:          c.broker.Config.Source,
+		Source:          b.broker.Config.Source,
 		SpecVersion:     "1.0",
 		DataContentType: contentType,
 		Time:            time.Now().UTC(),

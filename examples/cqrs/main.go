@@ -12,6 +12,44 @@ import (
 	_ "github.com/neutrinocorp/gluon/gmemory"
 )
 
+type GetUserQuery struct {
+	Username string `json:"username"`
+}
+
+var _ gcqrs.Query = GetUserQuery{}
+
+func (q GetUserQuery) Key() string {
+	return "org.neutrinocorp.cosmos.query.user.get"
+}
+
+type GetUserResponse struct {
+	UserID       string    `json:"user_id"`
+	Email        string    `json:"email"`
+	Username     string    `json:"username"`
+	Password     string    `json:"password"`
+	LastEditTime time.Time `json:"last_edit_time"`
+}
+
+type GetUserQueryHandler struct {
+}
+
+var _ gcqrs.QueryHandler = GetUserQueryHandler{}
+
+func (h GetUserQueryHandler) Query() gcqrs.Query {
+	return GetUserQuery{}
+}
+
+func (h GetUserQueryHandler) Handle(ctx context.Context, q gcqrs.Query) (interface{}, error) {
+	log.Printf("q: %v\n", q)
+	return GetUserResponse{
+		UserID:       "1",
+		Email:        "aruiz@neutrinocorp.org",
+		Username:     "aruiz",
+		Password:     "12345678",
+		LastEditTime: time.Now().UTC(),
+	}, nil
+}
+
 type CreateUserCommand struct {
 	UserID   string `json:"user_id"`
 	Email    string `json:"email"`
@@ -41,9 +79,13 @@ var _ gcqrs.CommandHandler = CreateUserCommandHandler{}
 func main() {
 	b := gluon.NewBroker("memory", "user-service")
 	commandBus := gcqrs.NewCommandBus(b)
+	queryBus := gcqrs.NewQueryBus()
 
 	cmd := CreateUserCommand{}
 	commandBus.Register(cmd, CreateUserCommandHandler{})
+
+	query := GetUserQuery{}
+	queryBus.Register(query, GetUserQueryHandler{})
 
 	// graceful shutdown
 	stop := make(chan os.Signal, 1)
@@ -56,13 +98,27 @@ func main() {
 
 	go func() {
 		ctx := context.Background()
+		query := GetUserQuery{
+			Username: "aruiz",
+		}
+		res, err := queryBus.Ask(ctx, query)
+		if err != nil {
+			log.Print(err)
+			return
+		}
+
+		log.Printf("res: %v\n", res)
+	}()
+
+	go func() {
+		ctx := context.Background()
 		cmd := CreateUserCommand{
 			UserID:   "1",
 			Email:    "aruiz@neutrinocorp.org",
 			Username: "aruiz",
 			Password: "12345678",
 		}
-		commandBus.Exec(ctx, cmd)
+		commandBus.Dispatch(ctx, cmd)
 	}()
 
 	go func() {
@@ -73,7 +129,7 @@ func main() {
 			Username: "br1",
 			Password: "987456123",
 		}
-		commandBus.Exec(ctx, cmd)
+		commandBus.Dispatch(ctx, cmd)
 	}()
 
 	<-stop
