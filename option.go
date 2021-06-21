@@ -16,6 +16,7 @@ type options struct {
 	publisher       Publisher
 	idFactory       IDFactory
 	marshaler       Marshaler
+	group           string
 	source          string
 	hosts           []string
 	maxRetries      int
@@ -86,6 +87,17 @@ func WithMarshaler(m Marshaler) Option {
 	return marshalerOption{
 		Marshaler: m,
 	}
+}
+
+type groupOption string
+
+func (o groupOption) apply(opts *options) {
+	opts.group = string(o)
+}
+
+// WithGroup sets the base consumer group
+func WithGroup(g string) Option {
+	return groupOption(g)
 }
 
 type sourceOption string

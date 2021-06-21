@@ -36,8 +36,8 @@ func (b *bus) register(w *worker, c *gluon.Consumer) {
 
 func (b *bus) start() {
 	dlq := gluon.NewAtomicQueue() // Dead-Letter Queue
+	go b.reEnqueueFromDLQ(dlq)    // handle failed messages while Broker is bootstrapping
 	go b.listenMessageStream(dlq)
-	go b.reEnqueueFromDLQ(dlq) // handle failed messages while Broker is bootstrapping
 }
 
 func (b *bus) listenMessageStream(dlq *gluon.AtomicQueue) {

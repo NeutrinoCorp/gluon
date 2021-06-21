@@ -34,7 +34,7 @@ var (
 )
 
 // NewBroker allocates a new broker
-func NewBroker(driver, name string, opts ...Option) *Broker {
+func NewBroker(driver string, opts ...Option) *Broker {
 	options := newBrokerDefaultOptions(driver)
 	for _, o := range opts {
 		o.apply(&options)
@@ -49,7 +49,7 @@ func NewBroker(driver, name string, opts ...Option) *Broker {
 		driver:         drivers[driver],
 		IsReady:        false,
 		Config: BrokerConfiguration{
-			Group:     name,
+			Group:     options.group,
 			Source:    options.source,
 			IDFactory: options.idFactory,
 			Marshaler: options.marshaler,
@@ -57,9 +57,9 @@ func NewBroker(driver, name string, opts ...Option) *Broker {
 				Hosts: options.hosts,
 			},
 			Resiliency: brokerResiliencyConfig{
-				MaxRetries:      3,
-				MinRetryBackoff: time.Second * 1,
-				MaxRetryBackoff: time.Second * 15,
+				MaxRetries:      options.maxRetries,
+				MinRetryBackoff: options.minRetryBackoff,
+				MaxRetryBackoff: options.maxRetryBackoff,
 			},
 			Behaviours: brokerBehaviours{},
 		},
@@ -73,7 +73,6 @@ func newBrokerDefaultOptions(driver string) options {
 	return options{
 		baseContext:     context.Background(),
 		idFactory:       RandomIDFactory{},
-		marshaler:       nil,
 		publisher:       drivers[driver],
 		hosts:           make([]string, 0),
 		maxRetries:      defaultMaxRetries,
@@ -90,6 +89,43 @@ func (b *Broker) Topic(t string) *Consumer {
 // Message sets a new message consumer using properties of the given message
 func (b *Broker) Message(m Message) *Consumer {
 	return b.Registry.Message(m)
+}
+
+// Event sets a new event consumer using the given event topic
+func (b *Broker) Event(e Event) *Consumer {
+	return b.Registry.Topic(e.Topic())
+}
+
+// Publish propagates the given event to the whole system through the message broker
+func (b *Broker) Publish(ctx context.Context, e Event) error {
+	id, err := b.Config.IDFactory.NewID()
+	if err != nil {
+		return err
+	}
+
+	var data interface{} = e
+	contentType := ""
+	if b.Config.Marshaler != nil {
+		contentType = b.Config.Marshaler.ContentType()
+		data, err = b.Config.Marshaler.Marshal(e)
+		if err != nil {
+			return err
+		}
+	}
+
+	return b.Publisher.PublishMessage(ctx, &Message{
+		ID:              id,
+		CausationID:     id,
+		CorrelationID:   id,
+		Source:          b.Config.Source + e.Source(),
+		Type:            e.Topic(),
+		SpecVersion:     CloudEventSpecVersion,
+		DataContentType: contentType,
+		DataSchema:      e.Schema(),
+		Subject:         e.Subject(),
+		Time:            time.Now().UTC(),
+		Data:            data,
+	})
 }
 
 // ListenAndServe starts subscription tasks concurrently safely

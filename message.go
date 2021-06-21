@@ -2,6 +2,9 @@ package gluon
 
 import "time"
 
+// CloudEventSpecVersion the current version of the CloudEvents specification
+const CloudEventSpecVersion = "1.0"
+
 // Message is the basic unit of communication for Gluon-based systems.
 // This struct is the one that will be send as body (or headers for some fields) to the actual
 // message broker.

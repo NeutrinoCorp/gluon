@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -11,12 +12,34 @@ import (
 	_ "github.com/neutrinocorp/gluon/gmemory"
 )
 
+type UserCreated struct {
+	UserID string `json:"user_id"`
+}
+
+var _ gluon.Event = UserCreated{}
+
+func (e UserCreated) Source() string {
+	return "/foo"
+}
+
+func (e UserCreated) Subject() string {
+	return ""
+}
+
+func (e UserCreated) Schema() string {
+	return "https://event-api.neutrinocorp.org/schemas"
+}
+
+func (e UserCreated) Topic() string {
+	return "neutrinocorp.user.event.user.created"
+}
+
 func main() {
-	b := gluon.NewBroker("memory", "user-service",
+	b := gluon.NewBroker("memory",
 		gluon.WithSource("org.neutrinocorp/cosmos/user"))
 
-	b.Topic("foo-event").Group("analytics-service").SubscriberFunc(func(ctx context.Context, msg gluon.Message) error {
-		log.Print(msg.Type)
+	b.Event(UserCreated{}).Group("analytics-service").SubscriberFunc(func(ctx context.Context, msg gluon.Message) error {
+		fmt.Printf("msg: %+v\n", msg)
 		return nil
 	})
 
@@ -45,14 +68,14 @@ func main() {
 	}()
 
 	go func() {
-		b.Publisher.PublishMessage(context.Background(), &gluon.Message{
-			Type: "bar-event",
+		b.Publish(context.Background(), UserCreated{
+			UserID: "1",
 		})
 	}()
 
 	go func() {
 		b.Publisher.PublishMessage(context.Background(), &gluon.Message{
-			Type: "foo-event",
+			Type: "bar-event",
 		})
 	}()
 

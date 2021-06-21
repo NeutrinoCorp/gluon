@@ -74,7 +74,7 @@ func (b *CommandBus) Dispatch(ctx context.Context, cmd Command) (string, error) 
 		CausationID:     id,
 		Type:            cmd.Key(),
 		Source:          b.broker.Config.Source,
-		SpecVersion:     "1.0",
+		SpecVersion:     gluon.CloudEventSpecVersion,
 		DataContentType: contentType,
 		Time:            time.Now().UTC(),
 		Data:            data,
