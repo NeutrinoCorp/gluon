@@ -4,25 +4,21 @@ import (
 	"context"
 	"errors"
 	"sync"
+
+	"github.com/neutrinocorp/gluon"
 )
 
-// ErrQueryNotFound requested query was not found on query bus registry
-var ErrQueryNotFound = errors.New("gcqrs: Query not found")
-
-// Query unit which triggers a read operation within the given system.
-//
-// A query MUST have only one handler.
-type Query interface {
-	// Key query unique name
-	Key() string
-}
+var (
+	// ErrQueryNotFound requested query was not found on query bus registry
+	ErrQueryNotFound = errors.New("gcqrs: Query not found")
+	// ErrQueryAlreadyExists requested query already exists within the query bus registry
+	ErrQueryAlreadyExists = errors.New("gcqrs: Query already exists")
+)
 
 // QueryHandler receives an specific query and executes derived read tasks
 type QueryHandler interface {
-	// Query retrieves the query the given handler is attached to
-	Query() Query
 	// Handle execute read operations of a query request
-	Handle(context.Context, Query) (interface{}, error)
+	Handle(context.Context, interface{}) (interface{}, error)
 }
 
 // QueryBus infrastructure component which intends to route queries to their respective handlers.
@@ -41,16 +37,26 @@ func NewQueryBus() *QueryBus {
 	}
 }
 
-// Register attaches a query to a command handler
-func (b *QueryBus) Register(q Query, h QueryHandler) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	b.registry[q.Key()] = h
+func generateQueryTopic(q interface{}) string {
+	return gluon.GenerateMessageKey("Query", true,
+		q)
 }
 
-// Dispatch makes a query request to the system
-func (b *QueryBus) Ask(ctx context.Context, q Query) (interface{}, error) {
-	h, ok := b.registry[q.Key()]
+// Register attaches a query to a command handler
+func (b *QueryBus) Register(q interface{}, h QueryHandler) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	topic := generateQueryTopic(q)
+	if _, ok := b.registry[topic]; ok {
+		return ErrQueryAlreadyExists
+	}
+	b.registry[topic] = h
+	return nil
+}
+
+// Ask makes a query request to the system
+func (b *QueryBus) Ask(ctx context.Context, q interface{}) (interface{}, error) {
+	h, ok := b.registry[generateQueryTopic(q)]
 	if !ok {
 		return nil, ErrQueryNotFound
 	}

@@ -2,6 +2,7 @@ package gmemory
 
 import (
 	"context"
+	"reflect"
 	"sync"
 
 	"github.com/neutrinocorp/gluon"
@@ -33,6 +34,11 @@ func (w *worker) Execute(ctx context.Context, wg *sync.WaitGroup, c *gluon.Consu
 			}
 
 			if subFunc := c.GetSubscriberFunc(); subFunc != nil {
+				data := msg.Data
+				if w.broker.Config.Marshaller != nil && w.broker.Config.Marshaller.ContentType() == msg.DataContentType {
+					data = reflect.New(reflect.TypeOf(c.GetSubscribedMessage()))
+					_ = w.broker.Config.Marshaller.Unmarshal(msg.Data, &data)
+				}
 				go subFunc(ctx, *msg)
 			}
 			if sub := c.GetSubscriber(); sub != nil {
@@ -42,7 +48,7 @@ func (w *worker) Execute(ctx context.Context, wg *sync.WaitGroup, c *gluon.Consu
 	}()
 }
 
-func (w *worker) Close(ctx context.Context, wg *sync.WaitGroup, errChan chan<- error) {
+func (w *worker) Close(_ context.Context, wg *sync.WaitGroup, _ chan<- error) {
 	close(w.messageChan)
 	wg.Done()
 }

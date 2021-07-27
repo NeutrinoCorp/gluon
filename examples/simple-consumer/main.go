@@ -16,20 +16,6 @@ type UserCreated struct {
 	UserID string `json:"user_id"`
 }
 
-var _ gluon.Event = UserCreated{}
-
-func (e UserCreated) Source() string {
-	return "/foo"
-}
-
-func (e UserCreated) Subject() string {
-	return ""
-}
-
-func (e UserCreated) Topic() string {
-	return "neutrinocorp.user.event.user.created"
-}
-
 type PublisherLogger struct {
 	Next gluon.Publisher
 }
@@ -44,6 +30,7 @@ func (p PublisherLogger) PublishMessage(ctx context.Context, msg *gluon.Message)
 func logMiddleware(next gluon.Subscriber) gluon.Subscriber {
 	return gluon.SubscriberFunc(func(ctx context.Context, msg gluon.Message) error {
 		log.Printf("stdout::Logger:consumer:%+v\n", msg)
+		log.Printf("stdout::Logger:consumer:%s\n", msg.Data)
 		return next.Handle(ctx, msg)
 	})
 }
@@ -59,9 +46,12 @@ var onUserCreatedAnalytics gluon.SubscriberFunc = func(ctx context.Context, msg 
 
 func main() {
 	b := gluon.NewBroker("memory",
-		gluon.WithSource("org.neutrinocorp/user"),
+		gluon.WithOrganization("neutrino"),
+		gluon.WithMajorVersion(2),
+		gluon.WithService("iam"),
+		gluon.WithSource("org.neutrinocorp"),
 		gluon.WithSchemaRegistry("https://event-api.neutrinocorp.org/schemas"),
-		gluon.WithMarshaler(gluon.JSONMarshaler{}))
+		gluon.WithMarshaller(gluon.JSONMarshaller{}))
 	p := PublisherLogger{
 		Next: b.Publisher,
 	}
@@ -85,14 +75,16 @@ func main() {
 		}
 	}()
 
+	topic := gluon.GenerateEventTopic(b, UserCreated{})
+
 	go func() {
-		b.Publish(context.Background(), UserCreated{
+		_, _ = b.Publish(context.Background(), topic, UserCreated{
 			UserID: "1",
 		})
 	}()
 
 	go func() {
-		b.Publish(context.Background(), UserCreated{
+		_, _ = b.Publish(context.Background(), topic, UserCreated{
 			UserID: "2",
 		})
 	}()

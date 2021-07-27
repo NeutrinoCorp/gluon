@@ -1,2 +1,2 @@
-// Gluon is a robust router for Message-Driven systems.
+// Package gluon Gluon is a robust router for Message-Driven systems.
 package gluon

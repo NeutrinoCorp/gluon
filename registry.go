@@ -83,6 +83,14 @@ func (r *Registry) List(topic string) ([]*Consumer, error) {
 	return c, nil
 }
 
+// Exists indicates if the given topic record exists within the registry
+func (r *Registry) Exists(topic string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	_, ok := r.entries[topic]
+	return ok
+}
+
 // Close clear memory allocation
 func (r *Registry) close() {
 	for k := range r.entries {

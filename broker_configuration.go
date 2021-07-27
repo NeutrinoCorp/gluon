@@ -6,11 +6,15 @@ import (
 
 // BrokerConfiguration Broker configuration options
 type BrokerConfiguration struct {
+	Organization string
+	Service      string
+	MajorVersion uint
+
 	Group          string
 	Source         string
 	SchemaRegistry string
 	IDFactory      IDFactory
-	Marshaler      Marshaler
+	Marshaller     Marshaller
 	Networking     brokerNetworkConfig
 	Resiliency     brokerResiliencyConfig
 }

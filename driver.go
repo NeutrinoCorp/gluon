@@ -15,7 +15,7 @@ type Driver interface {
 
 var (
 	driversMu sync.RWMutex
-	drivers   map[string]Driver = make(map[string]Driver)
+	drivers   = make(map[string]Driver)
 )
 
 // Register makes a message broker driver available for the Broker.

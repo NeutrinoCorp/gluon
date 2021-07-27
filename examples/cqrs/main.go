@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"os"
 	"os/signal"
@@ -15,8 +16,6 @@ import (
 type GetUserQuery struct {
 	Username string `json:"username"`
 }
-
-var _ gcqrs.Query = GetUserQuery{}
 
 func (q GetUserQuery) Key() string {
 	return "org.neutrinocorp.cosmos.query.user.get"
@@ -35,11 +34,7 @@ type GetUserQueryHandler struct {
 
 var _ gcqrs.QueryHandler = GetUserQueryHandler{}
 
-func (h GetUserQueryHandler) Query() gcqrs.Query {
-	return GetUserQuery{}
-}
-
-func (h GetUserQueryHandler) Handle(ctx context.Context, q gcqrs.Query) (interface{}, error) {
+func (h GetUserQueryHandler) Handle(_ context.Context, q interface{}) (interface{}, error) {
 	log.Printf("q: %v\n", q)
 	return GetUserResponse{
 		UserID:       "1",
@@ -61,15 +56,9 @@ func (c CreateUserCommand) Key() string {
 	return "org.neutrinocorp.cosmos.command.user.create"
 }
 
-var _ gcqrs.Command = CreateUserCommand{}
-
 type CreateUserCommandHandler struct{}
 
-func (c CreateUserCommandHandler) Command() gcqrs.Command {
-	return CreateUserCommand{}
-}
-
-func (c CreateUserCommandHandler) Handle(ctx context.Context, cmd gcqrs.Command) error {
+func (c CreateUserCommandHandler) Handle(_ context.Context, cmd interface{}) error {
 	log.Printf("cmd: %v\n", cmd)
 	return nil
 }
@@ -83,10 +72,10 @@ func main() {
 	queryBus := gcqrs.NewQueryBus()
 
 	cmd := CreateUserCommand{}
-	commandBus.Register(cmd, CreateUserCommandHandler{})
+	_ = commandBus.Register(cmd, CreateUserCommandHandler{})
 
 	query := GetUserQuery{}
-	queryBus.Register(query, GetUserQueryHandler{})
+	_ = queryBus.Register(query, GetUserQueryHandler{})
 
 	// graceful shutdown
 	stop := make(chan os.Signal, 1)
@@ -108,7 +97,8 @@ func main() {
 			return
 		}
 
-		log.Printf("res: %v\n", res)
+		resJSON, _ := json.Marshal(res)
+		log.Printf("res: %v\n", string(resJSON))
 	}()
 
 	go func() {
@@ -119,7 +109,7 @@ func main() {
 			Username: "aruiz",
 			Password: "12345678",
 		}
-		commandBus.Dispatch(ctx, cmd)
+		_, _ = commandBus.Dispatch(ctx, cmd)
 	}()
 
 	go func() {
@@ -130,7 +120,7 @@ func main() {
 			Username: "br1",
 			Password: "987456123",
 		}
-		commandBus.Dispatch(ctx, cmd)
+		_, _ = commandBus.Dispatch(ctx, cmd)
 	}()
 
 	<-stop

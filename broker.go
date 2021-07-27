@@ -3,6 +3,7 @@ package gluon
 import (
 	"context"
 	"errors"
+	"os"
 	"sync"
 	"time"
 )
@@ -49,11 +50,14 @@ func NewBroker(driver string, opts ...Option) *Broker {
 		driver:         drivers[driver],
 		IsReady:        false,
 		Config: BrokerConfiguration{
+			Organization:   options.organization,
+			Service:        options.service,
+			MajorVersion:   options.majorVersion,
 			Group:          options.group,
 			Source:         options.source,
 			SchemaRegistry: options.schemaRegistry,
 			IDFactory:      options.idFactory,
-			Marshaler:      options.marshaler,
+			Marshaller:     options.marshaller,
 			Networking: brokerNetworkConfig{
 				Hosts: options.hosts,
 			},
@@ -70,6 +74,7 @@ func NewBroker(driver string, opts ...Option) *Broker {
 
 // sets required default values for broker's ops
 func newBrokerDefaultOptions(driver string) options {
+	hostname, _ := os.Hostname()
 	return options{
 		baseContext:     context.Background(),
 		idFactory:       RandomIDFactory{},
@@ -78,10 +83,17 @@ func newBrokerDefaultOptions(driver string) options {
 		maxRetries:      defaultMaxRetries,
 		minRetryBackoff: defaultMinRetryBackoff,
 		maxRetryBackoff: defaultMaxRetryBackoff,
+		group:           hostname,
+		organization:    "acme",
+		service:         hostname,
+		majorVersion:    1,
+		source:          hostname,
 	}
 }
 
 // Topic sets a new message consumer using the given parameter as key (aka. topic)
+//
+// DO NOT forget to use SubscribedTo() method if using a marshaller
 func (b *Broker) Topic(t string) *Consumer {
 	return b.Registry.Topic(t)
 }
@@ -92,17 +104,24 @@ func (b *Broker) Message(m Message) *Consumer {
 }
 
 // Event sets a new event consumer using the given event topic
-func (b *Broker) Event(e Event) *Consumer {
-	return b.Registry.Topic(e.Topic())
+func (b *Broker) Event(e interface{}) *Consumer {
+	return b.Registry.Topic(GenerateEventTopic(b, e)).SubscribeTo(e)
 }
 
 // Publish propagates the given event to the whole system through the message broker
-func (b *Broker) Publish(ctx context.Context, e Event) error {
+func (b *Broker) Publish(ctx context.Context, topic string, e interface{}) (string, error) {
 	id, err := b.Config.IDFactory.NewID()
 	if err != nil {
-		return err
+		return "", err
 	}
-	return b.publish(ctx, id, id, id, e)
+	return id, b.publish(ctx, topic, id, id, id, e)
+}
+
+type PublishFromParentArgs struct {
+	Topic         string
+	CausationID   string
+	CorrelationID string
+	Event         interface{}
 }
 
 // PublishFromParent propagates the given event to the whole system through the message broker.
@@ -110,23 +129,38 @@ func (b *Broker) Publish(ctx context.Context, e Event) error {
 // Attach a parent to the given event as it improves observability.
 //
 // More information may be found here: https://blog.arkency.com/correlation-id-and-causation-id-in-evented-systems/
-func (b *Broker) PublishFromParent(ctx context.Context, causationID, correlationID string, e Event) error {
+func (b *Broker) PublishFromParent(ctx context.Context, args PublishFromParentArgs) (string, error) {
 	id, err := b.Config.IDFactory.NewID()
 	if err != nil {
-		return err
+		return "", err
 	}
-	return b.publish(ctx, id, causationID, correlationID, e)
+	return id, b.publish(ctx, args.Topic, id, args.CausationID,
+		args.CorrelationID, args.Event)
+}
+
+type PublishRawArgs struct {
+	Topic         string
+	MessageID     string
+	CausationID   string
+	CorrelationID string
+	Event         interface{}
+}
+
+// PublishRaw propagates the given event using all the arguments passed
+func (b *Broker) PublishRaw(ctx context.Context, args PublishRawArgs) error {
+	return b.publish(ctx, args.Topic, args.MessageID, args.CausationID,
+		args.CorrelationID, args.Event)
 }
 
 // Publish propagates the given event to the whole system through the message broker
-func (b *Broker) publish(ctx context.Context, id, causationID, correlationID string,
-	e Event) error {
+func (b *Broker) publish(ctx context.Context, topic, id, causationID, correlationID string,
+	ev interface{}) error {
 	var err error
-	var data interface{} = e
+	var data = ev
 	contentType := ""
-	if b.Config.Marshaler != nil {
-		contentType = b.Config.Marshaler.ContentType()
-		data, err = b.Config.Marshaler.Marshal(e)
+	if b.Config.Marshaller != nil {
+		contentType = b.Config.Marshaller.ContentType()
+		data, err = b.Config.Marshaller.Marshal(ev)
 		if err != nil {
 			return err
 		}
@@ -136,12 +170,12 @@ func (b *Broker) publish(ctx context.Context, id, causationID, correlationID str
 		ID:              id,
 		CausationID:     causationID,
 		CorrelationID:   correlationID,
-		Source:          b.Config.Source + e.Source(),
-		Type:            e.Topic(),
+		Source:          b.Config.Source,
+		Type:            topic,
 		SpecVersion:     CloudEventSpecVersion,
 		DataContentType: contentType,
 		DataSchema:      b.Config.SchemaRegistry,
-		Subject:         e.Subject(),
+		Subject:         b.Config.Source + "/" + b.Config.Service,
 		Time:            time.Now().UTC(),
 		Data:            data,
 	})
@@ -164,7 +198,7 @@ func (b *Broker) Serve() error {
 		b.startScheduler(b.BaseContext)
 
 		<-b.getDoneChanLocked()
-		b.Shutdown(b.BaseContext)
+		_ = b.Shutdown(b.BaseContext)
 	}
 }
 

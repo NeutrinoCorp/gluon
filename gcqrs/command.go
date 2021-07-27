@@ -2,25 +2,21 @@ package gcqrs
 
 import (
 	"context"
-	"time"
+	"errors"
 
 	"github.com/neutrinocorp/gluon"
 )
 
-// Command unit which triggers an operation -or entity state mutation- within the given system.
-//
-// A command MUST have only one handler.
-type Command interface {
-	// Key command unique name
-	Key() string
-}
+var (
+	// ErrCommandAlreadyExists requested command already exists within the command
+	// bus registry
+	ErrCommandAlreadyExists = errors.New("gcqrs: Command already exists")
+)
 
 // CommandHandler receives an specific command and executes derived logical tasks
 type CommandHandler interface {
-	// Command retrieves the command the given handler is attached to
-	Command() Command
 	// Handle execute operations of a command request
-	Handle(context.Context, Command) error
+	Handle(context.Context, interface{}) error
 }
 
 // CommandBus infrastructure component which intends to route commands to their respective handlers
@@ -35,49 +31,27 @@ func NewCommandBus(b *gluon.Broker) *CommandBus {
 	}
 }
 
+func generateCommandTopic(b *gluon.Broker, cmd interface{}) string {
+	topic := gluon.GenerateMessageKey("Command", true,
+		cmd)
+	return gluon.AddTopicPrefix(b, topic)
+}
+
 // Register attaches a command to a command handler
-func (b *CommandBus) Register(cmd Command, h CommandHandler) {
-	b.broker.Topic(cmd.Key()).Group(b.broker.Config.Group).
+func (b *CommandBus) Register(cmd interface{}, h CommandHandler) error {
+	topic := generateCommandTopic(b.broker, cmd)
+	if b.broker.Registry.Exists(topic) {
+		return ErrCommandAlreadyExists
+	}
+	b.broker.Topic(topic).Group(b.broker.Config.Group).SubscribeTo(cmd).
 		SubscriberFunc(func(ctx context.Context, msg gluon.Message) error {
-			var cmdMsg Command
-			if b.broker.Config.Marshaler != nil && b.broker.Config.Marshaler.ContentType() == msg.DataContentType {
-				if err := b.broker.Config.Marshaler.Unmarshal(msg.Data, &cmdMsg); err != nil {
-					return err
-				}
-			} else {
-				cmdMsg = msg.Data.(Command) // default unmarshal
-			}
-			return h.Handle(ctx, cmdMsg)
+			return h.Handle(ctx, msg.Data)
 		})
+	return nil
 }
 
 // Dispatch makes a command request to the system
-func (b *CommandBus) Dispatch(ctx context.Context, cmd Command) (string, error) {
-	id, err := b.broker.Config.IDFactory.NewID()
-	if err != nil {
-		return "", err
-	}
-
-	var data interface{} = cmd
-	contentType := ""
-	if b.broker.Config.Marshaler != nil {
-		contentType = b.broker.Config.Marshaler.ContentType()
-		data, err = b.broker.Config.Marshaler.Marshal(cmd)
-		if err != nil {
-			return "", err
-		}
-	}
-
-	return id, b.broker.Publisher.PublishMessage(ctx, &gluon.Message{
-		ID:              id,
-		CorrelationID:   id,
-		CausationID:     id,
-		Type:            cmd.Key(),
-		Source:          b.broker.Config.Source,
-		SpecVersion:     gluon.CloudEventSpecVersion,
-		DataContentType: contentType,
-		Time:            time.Now().UTC(),
-		Data:            data,
-		DataSchema:      b.broker.Config.SchemaRegistry,
-	})
+func (b *CommandBus) Dispatch(ctx context.Context, cmd interface{}) (string, error) {
+	topic := generateCommandTopic(b.broker, cmd)
+	return b.broker.Publish(ctx, topic, cmd)
 }

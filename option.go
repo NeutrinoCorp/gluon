@@ -15,7 +15,10 @@ type options struct {
 	baseContext     context.Context
 	publisher       Publisher
 	idFactory       IDFactory
-	marshaler       Marshaler
+	marshaller      Marshaller
+	organization    string
+	service         string
+	majorVersion    uint
 	group           string
 	source          string
 	schemaRegistry  string
@@ -75,19 +78,55 @@ func WithIDFactory(f IDFactory) Option {
 	}
 }
 
-type marshalerOption struct {
-	Marshaler Marshaler
+type marshallerOption struct {
+	Marshaller Marshaller
 }
 
-func (o marshalerOption) apply(opts *options) {
-	opts.marshaler = o.Marshaler
+func (o marshallerOption) apply(opts *options) {
+	opts.marshaller = o.Marshaller
 }
 
-// WithMarshaler sets the global marshaler to decode and encode messages
-func WithMarshaler(m Marshaler) Option {
-	return marshalerOption{
-		Marshaler: m,
+// WithMarshaller sets the global marshaller to decode and encode messages
+func WithMarshaller(m Marshaller) Option {
+	return marshallerOption{
+		Marshaller: m,
 	}
+}
+
+type organizationOption string
+
+func (o organizationOption) apply(opts *options) {
+	opts.organization = string(o)
+}
+
+// WithOrganization sets the base organization name for internal broker ops
+func WithOrganization(s string) Option {
+	return organizationOption(s)
+}
+
+type serviceOption string
+
+func (o serviceOption) apply(opts *options) {
+	opts.service = string(o)
+}
+
+// WithService sets the base service name for internal broker ops
+func WithService(s string) Option {
+	return serviceOption(s)
+}
+
+type majorVersionOption uint
+
+func (o majorVersionOption) apply(opts *options) {
+	opts.majorVersion = uint(o)
+}
+
+// WithMajorVersion sets the base major version (from SemVer) for internal broker ops
+func WithMajorVersion(s int) Option {
+	if s > 0 {
+		return majorVersionOption(s)
+	}
+	return majorVersionOption(1) // set default
 }
 
 type schemaOption string
@@ -140,7 +179,7 @@ func (o maxRetriesOption) apply(opts *options) {
 	opts.maxRetries = int(o)
 }
 
-// WithMaxRetries sets the total ammount of times to retry failed message consumptions
+// WithMaxRetries sets the total amount of times to retry failed message consumptions
 func WithMaxRetries(d int) Option {
 	if d < 0 {
 		d = defaultMaxRetries
@@ -154,7 +193,7 @@ func (o minRetryBackoffOption) apply(opts *options) {
 	opts.minRetryBackoff = time.Duration(o)
 }
 
-// WithMinRetryBackoff sets the minimum ammount of time for backoff when retrying failed message consumptions
+// WithMinRetryBackoff sets the minimum amount of time for backoff when retrying failed message consumptions
 func WithMinRetryBackoff(d time.Duration) Option {
 	if d <= 0 {
 		d = defaultMinRetryBackoff
@@ -169,7 +208,7 @@ func (o maxRetryBackoffOption) apply(opts *options) {
 	opts.maxRetryBackoff = time.Duration(o)
 }
 
-// WithMaxRetryBackoff sets the maximum ammount of time for backoff when retrying failed message consumptions
+// WithMaxRetryBackoff sets the maximum amount of time for backoff when retrying failed message consumptions
 func WithMaxRetryBackoff(d time.Duration) Option {
 	if d <= 0 {
 		d = defaultMaxRetries

@@ -2,7 +2,7 @@ package gluon
 
 import "time"
 
-// Consumer is the physical unit of the connection between a message and an action represented progammatically as a handler (a function or an struct).
+// Consumer is the physical unit of the connection between a message and an action represented programmatically as a handler (a function or an struct).
 //
 // It also contains definitions of various resiliency mechanisms such as retry (using exponential + jitter backoff) and dead-letter queue.
 //
@@ -17,6 +17,7 @@ type Consumer struct {
 	maxRetryBackoff      time.Duration
 	subscriber           Subscriber
 	subscriberFunc       SubscriberFunc
+	message              interface{}
 }
 
 // Group sets a consumer group (if driver allows) to the given handler.
@@ -96,6 +97,12 @@ func (c *Consumer) SubscriberFunc(s SubscriberFunc) *Consumer {
 	return c
 }
 
+// SubscribeTo sets the subscription to the given message.
+func (c *Consumer) SubscribeTo(msg interface{}) *Consumer {
+	c.message = msg
+	return c
+}
+
 // -- Getters --
 
 // GetTopic retrieves the current topic
@@ -141,4 +148,9 @@ func (c *Consumer) GetSubscriber() Subscriber {
 // GetSubscriberFunc retrieves the current subscriber function
 func (c *Consumer) GetSubscriberFunc() SubscriberFunc {
 	return c.subscriberFunc
+}
+
+// GetSubscribedMessage retrieves the current subscription message
+func (c *Consumer) GetSubscribedMessage() interface{} {
+	return c.message
 }
