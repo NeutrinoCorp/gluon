@@ -2,6 +2,7 @@ package gmemory
 
 import (
 	"context"
+	"log"
 	"reflect"
 	"sync"
 
@@ -33,12 +34,14 @@ func (w *worker) Execute(ctx context.Context, wg *sync.WaitGroup, c *gluon.Consu
 				continue
 			}
 
+			if w.broker.Config.Marshaller != nil && w.broker.Config.Marshaller.ContentType() == msg.DataContentType {
+				dataType := reflect.TypeOf(c.GetSubscribedMessage())
+				dataRef := reflect.New(dataType)
+				err := w.broker.Config.Marshaller.Unmarshal(msg.Data, &dataRef)
+				log.Println(err)
+				msg.Data = dataRef
+			}
 			if subFunc := c.GetSubscriberFunc(); subFunc != nil {
-				data := msg.Data
-				if w.broker.Config.Marshaller != nil && w.broker.Config.Marshaller.ContentType() == msg.DataContentType {
-					data = reflect.New(reflect.TypeOf(c.GetSubscribedMessage()))
-					_ = w.broker.Config.Marshaller.Unmarshal(msg.Data, &data)
-				}
 				go subFunc(ctx, *msg)
 			}
 			if sub := c.GetSubscriber(); sub != nil {

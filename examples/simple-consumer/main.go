@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
 	"log"
 	"os"
 	"os/signal"
@@ -36,11 +36,12 @@ func logMiddleware(next gluon.Subscriber) gluon.Subscriber {
 }
 
 var onUserCreatedAnalytics gluon.SubscriberFunc = func(ctx context.Context, msg gluon.Message) error {
-	e := UserCreated{}
-	err := json.Unmarshal(msg.Data.([]byte), &e)
-	if err != nil {
-		return err
+	_, ok := msg.Data.(UserCreated)
+	if !ok {
+		log.Print("stdout::Logger:analytics: cannot cast at analytics service")
+		return errors.New("cannot cast incoming data")
 	}
+	log.Print("stdout::Logger:analytics: user received at analytics service")
 	return nil
 }
 

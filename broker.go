@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -75,6 +76,7 @@ func NewBroker(driver string, opts ...Option) *Broker {
 // sets required default values for broker's ops
 func newBrokerDefaultOptions(driver string) options {
 	hostname, _ := os.Hostname()
+	hostname = strings.ReplaceAll(hostname, ".", "-")
 	return options{
 		baseContext:     context.Background(),
 		idFactory:       RandomIDFactory{},
