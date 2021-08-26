@@ -67,7 +67,7 @@ func (d *driver) Start(_ context.Context) error {
 					return
 				}
 
-				msg := p.queue[p.totalMessages-1]
+				msg := p.lastMessage
 				d.handler(context.Background(), &msg)
 			}(topic)
 		}

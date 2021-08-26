@@ -10,6 +10,7 @@ type partition struct {
 	mu            sync.RWMutex
 	totalMessages int
 	queue         []arch.TransportMessage
+	lastMessage   arch.TransportMessage
 	offsets       map[string]int // Key: consumer_group, Val: offset index
 }
 
@@ -26,5 +27,6 @@ func (p *partition) push(msg *arch.TransportMessage) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.queue = append(p.queue, *msg)
+	p.lastMessage = *msg
 	p.totalMessages++
 }
