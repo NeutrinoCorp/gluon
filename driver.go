@@ -5,12 +5,15 @@ import (
 	"sync"
 )
 
-// Driver is the vendor implementation of the message broker.
+// Driver Is the transportation vendor (e.g. Apache Kafka, AWS SNS/SQS, Redis Streams) which implements
+// `Gluon` internal mechanisms.
 type Driver interface {
-	WorkerFactory
-	Publisher
-	SetBroker(b *Broker)
-	Close(context.Context) error
+	SetParentBus(b *Bus)
+	SetInternalHandler(h InternalMessageHandler)
+	Start(context.Context) error
+	Shutdown(context.Context) error
+	Publish(ctx context.Context, topic string, message *TransportMessage) error
+	Subscribe(ctx context.Context, topic string)
 }
 
 var (
@@ -18,9 +21,9 @@ var (
 	drivers   = make(map[string]Driver)
 )
 
-// Register makes a message broker driver available for the Broker.
-// If Register is called with a driver equals to nil,
-// it panics.
+// Register makes a message broker driver available for the Bus.
+//
+// If Register is called with a driver equals to nil, it panics.
 func Register(name string, driver Driver) {
 	driversMu.Lock()
 	defer driversMu.Unlock()

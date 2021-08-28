@@ -1,19 +1,37 @@
 package gluon
 
-import "context"
+type Subscriber struct {
+	key string
 
-// Subscriber is the actual handler (action) of a message represented as an struct
-type Subscriber interface {
-	// Handle executes the given operation when a message has been received
-	Handle(context.Context, Message) error
+	group       string
+	handler     Handler
+	handlerFunc HandlerFunc
 }
 
-// SubscriberFunc is the actual handler (action) of a message represented as a function.
-//
-// Executes the given operation when a message has been received.
-type SubscriberFunc func(context.Context, Message) error
+func newSubscriber(key string) *Subscriber {
+	return &Subscriber{
+		key: key,
+	}
+}
 
-// Handle executes the given operation when a message has been received
-func (f SubscriberFunc) Handle(ctx context.Context, msg Message) error {
-	return f(ctx, msg)
+func (e *Subscriber) Group(g string) *Subscriber {
+	e.group = g
+	return e
+}
+
+func (e *Subscriber) Handler(h Handler) *Subscriber {
+	e.handler = h
+	return e
+}
+
+func (e *Subscriber) HandlerFunc(h HandlerFunc) *Subscriber {
+	e.handlerFunc = h
+	return e
+}
+
+func (e Subscriber) getHandler() HandlerFunc {
+	if e.handlerFunc != nil {
+		return e.handlerFunc
+	}
+	return e.handler.Handle
 }

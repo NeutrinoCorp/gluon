@@ -4,19 +4,19 @@ import (
 	"context"
 	"sync"
 
-	"github.com/neutrinocorp/gluon/arch"
+	"github.com/neutrinocorp/gluon"
 )
 
 type driver struct {
 	mu              sync.Mutex
-	parentBus       *arch.Bus
+	parentBus       *gluon.Bus
 	topicPartitions map[string]*partition // Key: partition_index#topic_name
 	schedulerBuffer *schedulerBuffer
-	handler         arch.InternalMessageHandler
+	handler         gluon.InternalMessageHandler
 }
 
 var (
-	_               arch.Driver = &driver{}
+	_               gluon.Driver = &driver{}
 	defaultDriver   *driver
 	driverSingleton = sync.Once{}
 )
@@ -29,7 +29,7 @@ func init() {
 			schedulerBuffer: newSchedulerBuffer(),
 		}
 	})
-	arch.Register("local", defaultDriver)
+	gluon.Register("local", defaultDriver)
 }
 
 func (d *driver) Shutdown(_ context.Context) error {
@@ -37,15 +37,15 @@ func (d *driver) Shutdown(_ context.Context) error {
 	return nil
 }
 
-func (d *driver) SetParentBus(b *arch.Bus) {
+func (d *driver) SetParentBus(b *gluon.Bus) {
 	d.parentBus = b
 }
 
-func (d *driver) SetInternalHandler(h arch.InternalMessageHandler) {
+func (d *driver) SetInternalHandler(h gluon.InternalMessageHandler) {
 	d.handler = h
 }
 
-func (d *driver) Publish(_ context.Context, topic string, message *arch.TransportMessage) error {
+func (d *driver) Publish(_ context.Context, topic string, message *gluon.TransportMessage) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	topicPartition := d.topicPartitions[topic]

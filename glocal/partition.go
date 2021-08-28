@@ -1,12 +1,12 @@
 package glocal
 
 import (
-	"github.com/neutrinocorp/gluon/arch"
+	"github.com/neutrinocorp/gluon"
 )
 
 type partition struct {
 	totalMessages int
-	lastMessage   arch.TransportMessage
+	lastMessage   gluon.TransportMessage
 }
 
 func newPartition() *partition {
@@ -15,7 +15,7 @@ func newPartition() *partition {
 	}
 }
 
-func (p *partition) push(msg *arch.TransportMessage) {
+func (p *partition) push(msg *gluon.TransportMessage) {
 	p.lastMessage = *msg
 	p.totalMessages++
 }

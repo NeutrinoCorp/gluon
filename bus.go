@@ -1,18 +1,22 @@
-package arch
+package gluon
 
 import (
 	"context"
+	"errors"
 	"log"
 	"strconv"
 	"time"
 )
 
-// Bus Is a facade component used to interact with `Gluon`.
+// ErrBusClosed Cannot perform the action with a closed Bus.
+var ErrBusClosed = errors.New("gluon: The bus is closed")
+
+// Bus Is a facade component used to interact with foreign systems through streaming messaging mechanisms.
 type Bus struct {
+	BaseContext   context.Context
 	Marshaler     Marshaler
 	Factories     Factories
 	Configuration BusConfiguration
-	BaseContext   context.Context
 	Logger        *log.Logger
 
 	driver             Driver
@@ -20,23 +24,60 @@ type Bus struct {
 	subscriberRegistry *subscriberRegistry
 }
 
-// NewBus Allocate a
-func NewBus(driver string) *Bus {
+// NewBus Allocate a new Bus with default configurations.
+func NewBus(driver string, opts ...Option) *Bus {
+	options := newBusDefaults()
+	for _, o := range opts {
+		o.apply(&options)
+	}
 	return &Bus{
-		Marshaler: defaultMarshaler,
+		BaseContext: options.baseContext,
+		Marshaler:   options.marshaler,
 		Factories: Factories{
-			IDFactory: defaultIDFactory,
+			IDFactory: options.idFactory,
 		},
+		Configuration: BusConfiguration{
+			RemoteSchemaRegistryURI: options.remoteSchemaRegistryURL,
+			MajorVersion:            options.majorVersion,
+			EnableLogging:           options.enableLogging,
+			Driver:                  nil,
+			ConsumerGroup:           options.consumerGroup,
+		},
+		Logger:             options.logger,
 		driver:             drivers[driver],
 		schemaRegistry:     newSchemaRegistry(),
 		subscriberRegistry: newSubscriberRegistry(),
 	}
 }
 
-func (b *Bus) RegisterSchema(schema interface{}, meta MessageMetadata) {
-	b.schemaRegistry.register(schema, meta)
+func newBusDefaults() options {
+	return options{
+		baseContext:             context.Background(),
+		remoteSchemaRegistryURL: "",
+		majorVersion:            1,
+		enableLogging:           false,
+		consumerGroup:           "",
+		marshaler:               defaultMarshaler,
+		idFactory:               defaultIDFactory,
+		logger:                  nil,
+	}
 }
 
+// RegisterSchema Link a message schema to specific metadata (MessageMetadata) and store it for Bus further operations.
+func (b *Bus) RegisterSchema(schema interface{}, opts ...SchemaRegistryOption) {
+	options := schemaRegistryOptions{}
+	for _, o := range opts {
+		o.apply(&options)
+	}
+	b.schemaRegistry.register(schema, MessageMetadata{
+		Topic:         options.topic,
+		Source:        options.source,
+		SchemaURI:     options.schemaURI,
+		SchemaVersion: options.version,
+	})
+}
+
+// ListenAndServe Bootstrap and start a Bus along its internal components (subscribers).
 func (b *Bus) ListenAndServe() error {
 	b.driver.SetParentBus(b)
 	b.driver.SetInternalHandler(getInternalHandler(b))
@@ -138,6 +179,7 @@ func (b *Bus) getSchemaVersion(meta MessageMetadata) int {
 	return b.Configuration.MajorVersion
 }
 
+// Shutdown Close a Bus and its internal resources gracefully.
 func (b *Bus) Shutdown(ctx context.Context) error {
 	return b.driver.Shutdown(ctx)
 }

@@ -1,4 +1,4 @@
-package arch
+package gluon
 
 // Factories Is a list of factories used by `Gluon` internals (e.g. ID factory) to successfully execute certain
 // operations.

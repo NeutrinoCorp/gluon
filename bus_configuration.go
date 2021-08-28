@@ -1,6 +1,7 @@
-package arch
+package gluon
 
 type BusConfiguration struct {
+	ConsumerGroup           string
 	RemoteSchemaRegistryURI string
 	MajorVersion            int
 	EnableLogging           bool
