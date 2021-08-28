@@ -16,11 +16,11 @@ type Bus struct {
 	Logger        *log.Logger
 
 	driver             Driver
-	messageRegistry    *messageRegistry
+	schemaRegistry     *schemaRegistry
 	subscriberRegistry *subscriberRegistry
-	messageRouter      *messageScheduler
 }
 
+// NewBus Allocate a
 func NewBus(driver string) *Bus {
 	return &Bus{
 		Marshaler: defaultMarshaler,
@@ -28,37 +28,54 @@ func NewBus(driver string) *Bus {
 			IDFactory: defaultIDFactory,
 		},
 		driver:             drivers[driver],
-		messageRegistry:    newMessageRegistry(),
+		schemaRegistry:     newSchemaRegistry(),
 		subscriberRegistry: newSubscriberRegistry(),
-		messageRouter:      newMessageScheduler(),
 	}
 }
 
-func (b *Bus) RegisterMessage(meta MessageMetadata, msg interface{}) {
-	b.messageRegistry.register(meta, msg)
+func (b *Bus) RegisterSchema(schema interface{}, meta MessageMetadata) {
+	b.schemaRegistry.register(schema, meta)
 }
 
 func (b *Bus) ListenAndServe() error {
 	b.driver.SetParentBus(b)
-	b.messageRouter.setBus(b)
-	b.driver.SetInternalHandler(b.messageRouter.getHandler())
+	b.driver.SetInternalHandler(getInternalHandler(b))
 	if b.BaseContext == nil {
 		b.BaseContext = context.Background()
 	}
 	return b.driver.Start(b.BaseContext)
 }
 
-func (b *Bus) Subscribe(topic string, msg interface{}) *Subscriber {
+// Subscribe Set a subscription task using schema metadata.
+//
+// It will return nil if no schema was found on local schema registry.
+func (b *Bus) Subscribe(schema interface{}) *Subscriber {
+	meta, err := b.schemaRegistry.get(schema)
+	if err != nil {
+		return nil
+	}
+	entry := newSubscriber(meta.Topic)
+	b.subscriberRegistry.register(meta.Topic, entry)
+	b.driver.Subscribe(b.BaseContext, meta.Topic)
+	return entry
+}
+
+// SubscribeTopic Set a subscription task using a raw topic name.
+func (b *Bus) SubscribeTopic(topic string) *Subscriber {
 	entry := newSubscriber(topic)
 	b.subscriberRegistry.register(topic, entry)
-	b.subscriberRegistry.registerType(topic, msg)
 	b.driver.Subscribe(b.BaseContext, topic)
 	return entry
 }
 
+// ListSubscribersFromTopic Get the subscription task queue of a registered topic.
+func (b *Bus) ListSubscribersFromTopic(t string) []*Subscriber {
+	return b.subscriberRegistry.get(t)
+}
+
 // Publish Propagate a message to the ecosystem using the internal topic registry agent to generate the topic.
 func (b *Bus) Publish(ctx context.Context, data interface{}) error {
-	meta, err := b.messageRegistry.get(data)
+	meta, err := b.schemaRegistry.get(data)
 	if err != nil {
 		return err
 	}
@@ -76,14 +93,30 @@ func (b *Bus) Publish(ctx context.Context, data interface{}) error {
 		DataContentType: b.Marshaler.GetContentType(),
 		DataSchema:      b.getDataSchema(meta),
 		Time:            time.Now().UTC().Format(time.RFC3339),
+		Topic:           meta.Topic,
 	}
 
+	b.injectContextToMessage(ctx, transportMessage)
 	encodedMsg, err := b.Marshaler.Marshal(data)
 	if err != nil {
 		return err
 	}
 	transportMessage.Data = encodedMsg
 	return b.driver.Publish(ctx, meta.Topic, transportMessage)
+}
+
+func (b *Bus) injectContextToMessage(ctx context.Context, msg *TransportMessage) {
+	if correlation, ok := ctx.Value(contextCorrelationID).(gluonContextKey); ok {
+		msg.CorrelationID = string(correlation)
+	} else {
+		msg.CorrelationID = msg.ID
+	}
+
+	if causation, ok := ctx.Value(contextMessageID).(gluonContextKey); ok {
+		msg.CausationID = string(causation)
+	} else {
+		msg.CausationID = msg.ID
+	}
 }
 
 // PublishRaw Propagate a raw `Gluon` internal message to the ecosystem.
@@ -95,7 +128,7 @@ func (b *Bus) getDataSchema(meta MessageMetadata) string {
 	if meta.SchemaURI != "" {
 		return meta.SchemaURI
 	}
-	return b.Configuration.SchemaRegistryURI
+	return b.Configuration.RemoteSchemaRegistryURI
 }
 
 func (b *Bus) getSchemaVersion(meta MessageMetadata) int {
