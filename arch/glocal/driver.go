@@ -8,10 +8,11 @@ import (
 )
 
 type driver struct {
-	parentBus *arch.Bus
-	registry  *partitionRegistry
-	scheduler *scheduler
-	handler   arch.InternalMessageHandler
+	mu              sync.Mutex
+	parentBus       *arch.Bus
+	topicPartitions map[string]*partition // Key: partition_index#topic_name
+	schedulerBuffer *schedulerBuffer
+	handler         arch.InternalMessageHandler
 }
 
 var (
@@ -23,15 +24,16 @@ var (
 func init() {
 	driverSingleton.Do(func() {
 		defaultDriver = &driver{
-			registry:  newPartitionRegistry(),
-			scheduler: newScheduler(),
+			mu:              sync.Mutex{},
+			topicPartitions: map[string]*partition{},
+			schedulerBuffer: newSchedulerBuffer(),
 		}
 	})
 	arch.Register("local", defaultDriver)
 }
 
 func (d *driver) Shutdown(_ context.Context) error {
-	d.scheduler.close()
+	d.schedulerBuffer.close()
 	return nil
 }
 
@@ -44,33 +46,31 @@ func (d *driver) SetInternalHandler(h arch.InternalMessageHandler) {
 }
 
 func (d *driver) Publish(_ context.Context, topic string, message *arch.TransportMessage) error {
-	topicPartition := d.registry.get(topic)
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	topicPartition := d.topicPartitions[topic]
 	if topicPartition == nil {
 		topicPartition = newPartition()
-		d.registry.set(topic, topicPartition)
+		d.topicPartitions[topic] = topicPartition
 	}
 	topicPartition.push(message)
-	d.scheduler.notify(topic)
+	d.schedulerBuffer.notify(topic)
 	return nil
 }
 
-func (d *driver) Subscribe(_ context.Context, _ string) {
-}
+func (d *driver) Subscribe(_ context.Context, _ string) {}
 
 func (d *driver) Start(_ context.Context) error {
-	go func() {
-		// TODO: Fix NAck and Ack mechanisms
-		for topic := range d.scheduler.notificationStream {
-			go func(t string) {
-				p := defaultDriver.registry.get(t)
-				if p == nil {
-					return
-				}
-
-				msg := p.lastMessage
-				d.handler(context.Background(), &msg)
-			}(topic)
-		}
-	}()
+	go d.startSubscriberTaskScheduler()
 	return nil
+}
+
+func (d *driver) startSubscriberTaskScheduler() {
+	for topic := range d.schedulerBuffer.notificationStream {
+		go func(t string) {
+			if p := defaultDriver.topicPartitions[t]; p != nil {
+				_ = d.handler(context.Background(), &p.lastMessage)
+			}
+		}(topic)
+	}
 }

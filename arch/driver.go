@@ -5,9 +5,6 @@ import (
 	"sync"
 )
 
-// InternalMessageHandler is the message handler used by concrete drivers.
-type InternalMessageHandler func(ctx context.Context, message *TransportMessage)
-
 // Driver Is the transportation vendor (e.g. Apache Kafka, AWS SNS/SQS, Redis Streams) which implements
 // `Gluon` internal mechanisms.
 type Driver interface {

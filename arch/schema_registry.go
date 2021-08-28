@@ -16,9 +16,11 @@ type MessageMetadata struct {
 	Source        string
 	SchemaURI     string
 	SchemaVersion int
+
+	schemaInternalType reflect.Type
 }
 
-// messageRegistry Is a concurrent-safe internal agent which relations message concrete types to useful metadata.
+// schemaRegistry Is a concurrent-safe internal agent which relations message concrete types to useful metadata.
 //
 // The metadata is composed by the message's topic name, source, data schema URI and subject. Most of the previous
 // fields come from the CloudEvents specification.
@@ -27,34 +29,46 @@ type MessageMetadata struct {
 // to make the relation to the specified metadata.
 //
 // For more information about most of the metadata fields, check: https://github.com/cloudevents/spec/blob/master/spec.md
-type messageRegistry struct {
+type schemaRegistry struct {
 	mu       sync.RWMutex
 	registry map[string]*MessageMetadata // Key: struct type, Val: topic
 }
 
-func newMessageRegistry() *messageRegistry {
-	return &messageRegistry{
+func newSchemaRegistry() *schemaRegistry {
+	return &schemaRegistry{
 		mu:       sync.RWMutex{},
 		registry: map[string]*MessageMetadata{},
 	}
 }
 
-func (r *messageRegistry) register(meta MessageMetadata, msg interface{}) {
+func (r *schemaRegistry) register(schema interface{}, meta MessageMetadata) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	typeStr := reflect.TypeOf(msg).String()
-	if _, ok := r.registry[typeStr]; ok {
+	schemaType := reflect.TypeOf(schema)
+	if _, ok := r.registry[schemaType.String()]; ok {
 		return
 	}
-	r.registry[typeStr] = &meta
+	meta.schemaInternalType = schemaType
+	r.registry[schemaType.String()] = &meta
 }
 
-func (r *messageRegistry) get(msg interface{}) (MessageMetadata, error) {
+func (r *schemaRegistry) get(schema interface{}) (MessageMetadata, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	typeStr := reflect.TypeOf(msg).String()
+	typeStr := reflect.TypeOf(schema).String()
 	if meta, ok := r.registry[typeStr]; ok {
 		return *meta, nil
 	}
 	return MessageMetadata{}, ErrMessageNotRegistered
+}
+
+func (r *schemaRegistry) getByTopic(t string) *MessageMetadata {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, v := range r.registry {
+		if v.Topic == t {
+			return v
+		}
+	}
+	return nil
 }

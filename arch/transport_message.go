@@ -32,4 +32,7 @@ type TransportMessage struct {
 	CorrelationID string      `json:"gluon_correlation_id"`
 	CausationID   string      `json:"gluon_causation_id"`
 	TraceContext  interface{} `json:"gluon_trace_context"`
+
+	// Internal fields
+	Topic string `json:"-"`
 }
