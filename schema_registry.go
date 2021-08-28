@@ -1,4 +1,4 @@
-package arch
+package gluon
 
 import (
 	"errors"
@@ -11,6 +11,7 @@ var (
 	ErrMessageNotRegistered = errors.New("gluon: The specified message type is not present on the message registry")
 )
 
+// MessageMetadata Is a set of definitions to describe a specific message schema.
 type MessageMetadata struct {
 	Topic         string
 	Source        string

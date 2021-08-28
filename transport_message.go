@@ -1,4 +1,4 @@
-package arch
+package gluon
 
 // CloudEventsSpecVersion The CloudEvents specification version used by `Gluon` internals.
 const CloudEventsSpecVersion = "1.0"
