@@ -17,7 +17,9 @@ func getInternalHandler(b *Bus) InternalMessageHandler {
 			err := b.Marshaler.Unmarshal(msg.Data, data.Interface())
 			if err != nil && b.isLoggerEnabled() {
 				b.Logger.Print("gluon: " + err.Error())
+				return err
 			}
+			// TODO: Enable Ack mechanism (consumer id passed through InternalHandler params?)
 			// TODO: Send to retry queue or dlq
 			scopedCtx := injectCorrelationContext(ctx, msg)
 			_ = sub.getHandler()(scopedCtx, &Message{

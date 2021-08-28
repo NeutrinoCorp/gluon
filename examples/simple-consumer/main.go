@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/neutrinocorp/gluon"
+	"github.com/neutrinocorp/gluon/glocal"
 	_ "github.com/neutrinocorp/gluon/glocal"
 )
 
@@ -53,7 +54,11 @@ func main() {
 func newBus() *gluon.Bus {
 	bus := gluon.NewBus("local",
 		gluon.WithRemoteSchemaRegistry("https://pubsub.neutrino.org/marketplace/schemas"),
-		gluon.WithMajorVersion(2))
+		gluon.WithMajorVersion(2),
+		gluon.WithDriverConfiguration(
+			glocal.Configuration{
+				IsDurable: true,
+			}))
 	return bus
 }
 

@@ -12,9 +12,11 @@ type options struct {
 	enableLogging           bool
 	consumerGroup           string
 
-	marshaler Marshaler
-	idFactory IDFactory
-	logger    *log.Logger
+	marshaler    Marshaler
+	idFactory    IDFactory
+	logger       *log.Logger
+	driverConfig interface{}
+	cluster      []string
 }
 
 // Option set a specific configuration of a resource (e.g. bus).
@@ -122,4 +124,30 @@ func (o consumerGroupOption) apply(opts *options) {
 // WithConsumerGroup Set a global consumer group, useful for microservices.
 func WithConsumerGroup(s string) Option {
 	return consumerGroupOption(s)
+}
+
+type driverConfigOption struct {
+	DriverConfig interface{}
+}
+
+func (o driverConfigOption) apply(opts *options) {
+	opts.driverConfig = o.DriverConfig
+}
+
+// WithDriverConfiguration Set a configuration for a specific driver.
+func WithDriverConfiguration(cfg interface{}) Option {
+	return driverConfigOption{DriverConfig: cfg}
+}
+
+type clusterOption []string
+
+func (o clusterOption) apply(opts *options) {
+	opts.cluster = o
+}
+
+// WithCluster Set one up to N nodes for the Bus to use.
+//
+// Not applicable when using a local Bus.
+func WithCluster(addr ...string) Option {
+	return clusterOption(addr)
 }
