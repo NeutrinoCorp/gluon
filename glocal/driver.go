@@ -13,6 +13,7 @@ type driver struct {
 	topicPartitions map[string]*partition // Key: partition_index#topic_name
 	schedulerBuffer *schedulerBuffer
 	handler         gluon.InternalMessageHandler
+	cfg             Configuration
 }
 
 var (
@@ -39,6 +40,9 @@ func (d *driver) Shutdown(_ context.Context) error {
 
 func (d *driver) SetParentBus(b *gluon.Bus) {
 	d.parentBus = b
+	if cfg, ok := d.parentBus.Configuration.Driver.(Configuration); ok {
+		d.cfg = cfg
+	}
 }
 
 func (d *driver) SetInternalHandler(h gluon.InternalMessageHandler) {

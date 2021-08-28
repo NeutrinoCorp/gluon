@@ -18,6 +18,7 @@ type Bus struct {
 	Factories     Factories
 	Configuration BusConfiguration
 	Logger        *log.Logger
+	Addresses     []string
 
 	driver             Driver
 	schemaRegistry     *schemaRegistry
@@ -40,10 +41,11 @@ func NewBus(driver string, opts ...Option) *Bus {
 			RemoteSchemaRegistryURI: options.remoteSchemaRegistryURL,
 			MajorVersion:            options.majorVersion,
 			EnableLogging:           options.enableLogging,
-			Driver:                  nil,
+			Driver:                  options.driverConfig,
 			ConsumerGroup:           options.consumerGroup,
 		},
 		Logger:             options.logger,
+		Addresses:          options.cluster,
 		driver:             drivers[driver],
 		schemaRegistry:     newSchemaRegistry(),
 		subscriberRegistry: newSubscriberRegistry(),
@@ -60,6 +62,8 @@ func newBusDefaults() options {
 		marshaler:               defaultMarshaler,
 		idFactory:               defaultIDFactory,
 		logger:                  nil,
+		driverConfig:            nil,
+		cluster:                 nil,
 	}
 }
 
