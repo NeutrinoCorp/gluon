@@ -6,6 +6,8 @@ import (
 	"log"
 	"strconv"
 	"time"
+
+	"github.com/hashicorp/go-multierror"
 )
 
 // ErrBusClosed Cannot perform the action with a closed Bus.
@@ -85,10 +87,24 @@ func (b *Bus) RegisterSchema(schema interface{}, opts ...SchemaRegistryOption) {
 func (b *Bus) ListenAndServe() error {
 	b.driver.SetParentBus(b)
 	b.driver.SetInternalHandler(getInternalHandler(b))
-	if b.BaseContext == nil {
-		b.BaseContext = context.Background()
+	if err := b.driver.Start(b.BaseContext); err != nil {
+		return err
 	}
-	return b.driver.Start(b.BaseContext)
+	return b.startSubscriberJobs()
+}
+
+func (b *Bus) startSubscriberJobs() error {
+	errs := new(multierror.Error)
+	for _, subs := range b.subscriberRegistry.registry {
+		for _, s := range subs {
+			err := b.driver.Subscribe(b.BaseContext, s)
+			if err != nil {
+				errs = multierror.Append(err, errs)
+			}
+		}
+	}
+
+	return errs.ErrorOrNil()
 }
 
 // Subscribe Set a subscription task using schema metadata.
@@ -101,7 +117,6 @@ func (b *Bus) Subscribe(schema interface{}) *Subscriber {
 	}
 	entry := newSubscriber(meta.Topic)
 	b.subscriberRegistry.register(meta.Topic, entry)
-	b.driver.Subscribe(b.BaseContext, meta.Topic)
 	return entry
 }
 
@@ -109,13 +124,25 @@ func (b *Bus) Subscribe(schema interface{}) *Subscriber {
 func (b *Bus) SubscribeTopic(topic string) *Subscriber {
 	entry := newSubscriber(topic)
 	b.subscriberRegistry.register(topic, entry)
-	b.driver.Subscribe(b.BaseContext, topic)
 	return entry
 }
 
 // ListSubscribersFromTopic Get the subscription task queue of a registered topic.
 func (b *Bus) ListSubscribersFromTopic(t string) []*Subscriber {
 	return b.subscriberRegistry.get(t)
+}
+
+// PublishBulk Propagate multiple messages to the ecosystem.
+func (b *Bus) PublishBulk(ctx context.Context, data ...interface{}) error {
+	errs := new(multierror.Error)
+
+	for _, d := range data {
+		if err := b.Publish(ctx, d); err != nil {
+			errs = multierror.Append(err, errs)
+		}
+	}
+
+	return errs.ErrorOrNil()
 }
 
 // Publish Propagate a message to the ecosystem using the internal topic registry agent to generate the topic.
@@ -147,7 +174,7 @@ func (b *Bus) Publish(ctx context.Context, data interface{}) error {
 		return err
 	}
 	transportMessage.Data = encodedMsg
-	return b.driver.Publish(ctx, meta.Topic, transportMessage)
+	return b.driver.Publish(ctx, transportMessage)
 }
 
 func (b *Bus) injectContextToMessage(ctx context.Context, msg *TransportMessage) {
@@ -166,7 +193,7 @@ func (b *Bus) injectContextToMessage(ctx context.Context, msg *TransportMessage)
 
 // PublishRaw Propagate a raw `Gluon` internal message to the ecosystem.
 func (b *Bus) PublishRaw(ctx context.Context, topic string, msg *TransportMessage) error {
-	return b.driver.Publish(ctx, topic, msg)
+	return b.driver.Publish(ctx, msg)
 }
 
 func (b *Bus) getDataSchema(meta MessageMetadata) string {

@@ -34,5 +34,6 @@ type TransportMessage struct {
 	TraceContext  interface{} `json:"gluon_trace_context"`
 
 	// Internal fields
-	Topic string `json:"-"`
+	Topic         string            `json:"-"`
+	DriverHeaders map[string]string `json:"-"`
 }

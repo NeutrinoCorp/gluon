@@ -12,8 +12,8 @@ type Driver interface {
 	SetInternalHandler(h InternalMessageHandler)
 	Start(context.Context) error
 	Shutdown(context.Context) error
-	Publish(ctx context.Context, topic string, message *TransportMessage) error
-	Subscribe(ctx context.Context, topic string)
+	Publish(ctx context.Context, message *TransportMessage) error
+	Subscribe(ctx context.Context, subscriber *Subscriber) error
 }
 
 var (

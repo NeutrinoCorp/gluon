@@ -29,8 +29,8 @@ func init() {
 			topicPartitions: map[string]*partition{},
 			schedulerBuffer: newSchedulerBuffer(),
 		}
+		gluon.Register("local", defaultDriver)
 	})
-	gluon.Register("local", defaultDriver)
 }
 
 func (d *driver) Shutdown(_ context.Context) error {
@@ -49,20 +49,22 @@ func (d *driver) SetInternalHandler(h gluon.InternalMessageHandler) {
 	d.handler = h
 }
 
-func (d *driver) Publish(_ context.Context, topic string, message *gluon.TransportMessage) error {
+func (d *driver) Publish(_ context.Context, message *gluon.TransportMessage) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	topicPartition := d.topicPartitions[topic]
+	topicPartition := d.topicPartitions[message.Topic]
 	if topicPartition == nil {
 		topicPartition = newPartition()
-		d.topicPartitions[topic] = topicPartition
+		d.topicPartitions[message.Topic] = topicPartition
 	}
 	topicPartition.push(message)
-	d.schedulerBuffer.notify(topic)
+	d.schedulerBuffer.notify(message.Topic)
 	return nil
 }
 
-func (d *driver) Subscribe(_ context.Context, _ string) {}
+func (d *driver) Subscribe(_ context.Context, _ *gluon.Subscriber) error {
+	return nil
+}
 
 func (d *driver) Start(_ context.Context) error {
 	go d.startSubscriberTaskScheduler()
@@ -73,7 +75,10 @@ func (d *driver) startSubscriberTaskScheduler() {
 	for topic := range d.schedulerBuffer.notificationStream {
 		go func(t string) {
 			if p := defaultDriver.topicPartitions[t]; p != nil {
-				_ = d.handler(context.Background(), &p.lastMessage)
+				subs := d.parentBus.ListSubscribersFromTopic(t)
+				for _, sub := range subs {
+					_ = d.handler(context.Background(), sub, &p.lastMessage)
+				}
 			}
 		}(topic)
 	}
