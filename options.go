@@ -12,11 +12,13 @@ type options struct {
 	enableLogging           bool
 	consumerGroup           string
 
-	marshaler    Marshaler
-	idFactory    IDFactory
-	logger       *log.Logger
-	driverConfig interface{}
-	cluster      []string
+	marshaler           Marshaler
+	idFactory           IDFactory
+	logger              *log.Logger
+	driverConfig        interface{}
+	cluster             []string
+	consumerMiddleware  []MiddlewareHandlerFunc
+	publisherMiddleware []MiddlewarePublisherFunc
 }
 
 // Option set a specific configuration of a resource (e.g. bus).
@@ -150,4 +152,26 @@ func (o clusterOption) apply(opts *options) {
 // Not applicable when using a local Bus.
 func WithCluster(addr ...string) Option {
 	return clusterOption(addr)
+}
+
+type consumerMiddlewareOption []MiddlewareHandlerFunc
+
+func (o consumerMiddlewareOption) apply(opts *options) {
+	opts.consumerMiddleware = o
+}
+
+// WithConsumerMiddleware Attach a chain of behaviour(s) for `Gluon` message consumption operations.
+func WithConsumerMiddleware(f ...MiddlewareHandlerFunc) Option {
+	return consumerMiddlewareOption(f)
+}
+
+type publisherMiddlewareOption []MiddlewarePublisherFunc
+
+func (o publisherMiddlewareOption) apply(opts *options) {
+	opts.publisherMiddleware = o
+}
+
+// WithPublisherMiddleware Attach a chain of behaviour(s) for `Gluon` message production of message operations.
+func WithPublisherMiddleware(f ...MiddlewarePublisherFunc) Option {
+	return publisherMiddlewareOption(f)
 }

@@ -15,12 +15,14 @@ var ErrBusClosed = errors.New("gluon: The bus is closed")
 
 // Bus Is a facade component used to interact with foreign systems through streaming messaging mechanisms.
 type Bus struct {
-	BaseContext   context.Context
-	Marshaler     Marshaler
-	Factories     Factories
-	Configuration BusConfiguration
-	Logger        *log.Logger
-	Addresses     []string
+	BaseContext         context.Context
+	Marshaler           Marshaler
+	Factories           Factories
+	Configuration       BusConfiguration
+	Logger              *log.Logger
+	Addresses           []string
+	consumerMiddleware  []MiddlewareHandlerFunc
+	publisherMiddleware []MiddlewarePublisherFunc
 
 	driver             Driver
 	schemaRegistry     *schemaRegistry
@@ -46,11 +48,13 @@ func NewBus(driver string, opts ...Option) *Bus {
 			Driver:                  options.driverConfig,
 			ConsumerGroup:           options.consumerGroup,
 		},
-		Logger:             options.logger,
-		Addresses:          options.cluster,
-		driver:             drivers[driver],
-		schemaRegistry:     newSchemaRegistry(),
-		subscriberRegistry: newSubscriberRegistry(),
+		Logger:              options.logger,
+		Addresses:           options.cluster,
+		consumerMiddleware:  options.consumerMiddleware,
+		publisherMiddleware: options.publisherMiddleware,
+		driver:              drivers[driver],
+		schemaRegistry:      newSchemaRegistry(),
+		subscriberRegistry:  newSubscriberRegistry(),
 	}
 }
 
@@ -145,19 +149,35 @@ func (b *Bus) PublishBulk(ctx context.Context, data ...interface{}) error {
 	return errs.ErrorOrNil()
 }
 
-// Publish Propagate a message to the ecosystem using the internal topic registry agent to generate the topic.
-func (b *Bus) Publish(ctx context.Context, data interface{}) error {
-	meta, err := b.schemaRegistry.get(data)
+// PublishWithSubject Propagate a message to the ecosystem using the internal topic registry agent to generate the topic.
+//
+// This method also exposes the `Subject` property to define the CloudEvent property with the same name.
+func (b *Bus) PublishWithSubject(ctx context.Context, data interface{}, subject string) error {
+	msg, err := b.generateTransportMessage(data)
 	if err != nil {
 		return err
+	}
+	msg.Subject = subject
+	return b.publish(ctx, msg)
+}
+
+func (b *Bus) generateTransportMessage(data interface{}) (*TransportMessage, error) {
+	meta, err := b.schemaRegistry.get(data)
+	if err != nil {
+		return nil, err
 	}
 
 	msgID, err := b.Factories.IDFactory.NewID()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	transportMessage := &TransportMessage{
+	encodedMsg, err := b.Marshaler.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+
+	return &TransportMessage{
 		ID:              msgID,
 		Source:          meta.Source,
 		SpecVersion:     CloudEventsSpecVersion,
@@ -166,15 +186,19 @@ func (b *Bus) Publish(ctx context.Context, data interface{}) error {
 		DataSchema:      b.getDataSchema(meta),
 		Time:            time.Now().UTC().Format(time.RFC3339),
 		Topic:           meta.Topic,
-	}
+		Data:            encodedMsg,
+	}, nil
+}
 
-	b.injectContextToMessage(ctx, transportMessage)
-	encodedMsg, err := b.Marshaler.Marshal(data)
+// Publish Propagate a message to the ecosystem using the internal topic registry agent to generate the topic.
+//
+// 	Note: To propagate correlation and causation IDs, use Subscription's context.
+func (b *Bus) Publish(ctx context.Context, data interface{}) error {
+	msg, err := b.generateTransportMessage(data)
 	if err != nil {
 		return err
 	}
-	transportMessage.Data = encodedMsg
-	return b.driver.Publish(ctx, transportMessage)
+	return b.publish(ctx, msg)
 }
 
 func (b *Bus) injectContextToMessage(ctx context.Context, msg *TransportMessage) {
@@ -192,8 +216,19 @@ func (b *Bus) injectContextToMessage(ctx context.Context, msg *TransportMessage)
 }
 
 // PublishRaw Propagate a raw `Gluon` internal message to the ecosystem.
-func (b *Bus) PublishRaw(ctx context.Context, topic string, msg *TransportMessage) error {
-	return b.driver.Publish(ctx, msg)
+func (b *Bus) PublishRaw(ctx context.Context, msg *TransportMessage) error {
+	return b.publish(ctx, msg)
+}
+
+func (b *Bus) publish(ctx context.Context, msg *TransportMessage) error {
+	b.injectContextToMessage(ctx, msg)
+	handlerFunc := b.driver.Publish
+	for _, mw := range b.publisherMiddleware {
+		if mw != nil {
+			handlerFunc = mw(handlerFunc)
+		}
+	}
+	return handlerFunc(ctx, msg)
 }
 
 func (b *Bus) getDataSchema(meta MessageMetadata) string {

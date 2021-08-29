@@ -37,6 +37,13 @@ func logMiddleware(next gluon.HandlerFunc) gluon.HandlerFunc {
 	}
 }
 
+func logProducerMiddleware(next gluon.PublisherFunc) gluon.PublisherFunc {
+	return func(ctx context.Context, message *gluon.TransportMessage) error {
+		log.Print("producing message")
+		return next(ctx, message)
+	}
+}
+
 func main() {
 	bus := newBus()
 	registerSchemas(bus)
@@ -57,7 +64,9 @@ func newBus() *gluon.Bus {
 		gluon.WithRemoteSchemaRegistry("https://pubsub.neutrino.org/marketplace/schemas"),
 		gluon.WithMajorVersion(2),
 		gluon.WithLoggingOption(true),
-		gluon.WithLogger(logger))
+		gluon.WithLogger(logger),
+		gluon.WithPublisherMiddleware(logProducerMiddleware),
+		gluon.WithConsumerMiddleware(logMiddleware))
 	return bus
 }
 
@@ -87,10 +96,10 @@ func registerSubscribers(bus *gluon.Bus) {
 				event.PaidAt.Format(time.RFC3339), event.Total)
 			log.Printf("[WAREHOUSE_SERVICE] | Message metadata: id: %s, correlation: %s, causation: %s",
 				message.GetMessageID(), message.GetCorrelationID(), message.GetCausationID())
-			return bus.Publish(ctx, OrderSent{
+			return bus.PublishWithSubject(ctx, OrderSent{
 				OrderID: uuid.NewString(),
 				SentAt:  time.Now().UTC(),
-			})
+			}, event.ItemID)
 		})
 
 	bus.Subscribe(OrderSent{}).
@@ -109,20 +118,20 @@ func registerSubscribers(bus *gluon.Bus) {
 
 	bus.Subscribe(OrderDelivered{}).
 		Group("customer-analytics-service").
-		HandlerFunc(logMiddleware(func(ctx context.Context, message *gluon.Message) error {
+		HandlerFunc(func(ctx context.Context, message *gluon.Message) error {
 			event := message.Data.(OrderDelivered)
 			log.Printf("[CUSTOMER_ANALYTICS_SERVICE] | Order %s has been delivered at %s", event.OrderID,
 				event.DeliveredAt.Format(time.RFC3339))
 			log.Printf("[CUSTOMER_ANALYTICS_SERVICE] | Message metadata: id: %s, correlation: %s, causation: %s",
 				message.GetMessageID(), message.GetCorrelationID(), message.GetCausationID())
 			return nil
-		}))
+		})
 
 	bus.Subscribe(OrderDelivered{}).
-		HandlerFunc(logMiddleware(func(ctx context.Context, message *gluon.Message) error {
+		HandlerFunc(func(ctx context.Context, message *gluon.Message) error {
 			log.Print("[SHARDED_CONSUMER] Order has been delivered")
 			return nil
-		}))
+		})
 }
 
 func publishMessage(bus *gluon.Bus) {

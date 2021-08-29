@@ -13,18 +13,32 @@ func getInternalHandler(b *Bus) InternalMessageHandler {
 		msgMeta := b.schemaRegistry.getByTopic(sub.key)
 		data := reflect.New(msgMeta.schemaInternalType)
 		err := b.Marshaler.Unmarshal(msg.Data, data.Interface())
+		logInternalConsumerError(b, err)
 		if err != nil && b.isLoggerEnabled() {
-			b.Logger.Print("gluon: " + err.Error())
 			return err
 		}
-		// TODO: Enable Ack mechanism (consumer id passed through InternalHandler params?)
-		// TODO: Send to retry queue or dlq
-		scopedCtx := injectCorrelationContext(ctx, msg)
-		return sub.GetDefaultHandler()(scopedCtx, &Message{
-			Headers: generateHeaders(msg, sub),
-			Data:    data.Elem().Interface(),
-		})
+		return execConsumer(ctx, b, sub, msg, data)
 	}
+}
+
+func logInternalConsumerError(b *Bus, err error) {
+	if err != nil && b.isLoggerEnabled() {
+		b.Logger.Print("gluon: " + err.Error())
+	}
+}
+
+func execConsumer(ctx context.Context, b *Bus, sub *Subscriber, msg *TransportMessage, data reflect.Value) error {
+	scopedCtx := injectCorrelationContext(ctx, msg)
+	handlerFunc := sub.GetHandlerFunc()
+	for _, mw := range b.consumerMiddleware {
+		if mw != nil {
+			handlerFunc = mw(handlerFunc)
+		}
+	}
+	return handlerFunc(scopedCtx, &Message{
+		Headers: generateHeaders(msg, sub),
+		Data:    data.Elem().Interface(),
+	})
 }
 
 func injectCorrelationContext(ctx context.Context, msg *TransportMessage) context.Context {
