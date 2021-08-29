@@ -52,13 +52,16 @@ type sensorDummyEvent struct {
 	SensorID string
 }
 
-func TestTopicRegistry_Register(t *testing.T) {
+func TestSchemaRegistry_Register(t *testing.T) {
 	registry := newSchemaRegistry()
 	for _, tt := range messageRegistryTestCases {
 		t.Run("", func(t *testing.T) {
 			registry.register(tt.In, tt.Want)
-			expTopic, _ := registry.get(tt.In)
-			assert.EqualValues(t, tt.Want, expTopic)
+			meta, _ := registry.get(tt.In)
+			assert.Equal(t, tt.Want.Topic, meta.Topic)
+			assert.Equal(t, tt.Want.SchemaURI, meta.SchemaURI)
+			assert.Equal(t, tt.Want.SchemaVersion, meta.SchemaVersion)
+			assert.Equal(t, tt.Want.Source, meta.Source)
 		})
 	}
 }
