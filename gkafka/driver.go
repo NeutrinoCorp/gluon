@@ -71,7 +71,10 @@ func (d *driver) Publish(_ context.Context, message *gluon.TransportMessage) err
 }
 
 func (d *driver) Subscribe(ctx context.Context, subscriber *gluon.Subscriber) error {
-	groupStr := subscriber.GetGroup()
+	groupStr := d.parentBus.Configuration.ConsumerGroup
+	if g := subscriber.GetGroup(); g != "" {
+		groupStr = g // specified consumer group over global consumer group
+	}
 	consumer := newConsumerStrategy(d, groupStr)
 	d.consumers = append(d.consumers, consumer)
 	return consumer.consume(ctx, subscriber)
