@@ -29,7 +29,7 @@ func logInternalConsumerError(b *Bus, err error) {
 
 func execConsumer(ctx context.Context, b *Bus, sub *Subscriber, msg *TransportMessage, data reflect.Value) error {
 	scopedCtx := injectCorrelationContext(ctx, msg)
-	handlerFunc := sub.GetHandlerFunc()
+	handlerFunc := sub.GetDefaultHandler()
 	for _, mw := range b.consumerMiddleware {
 		if mw != nil {
 			handlerFunc = mw(handlerFunc)

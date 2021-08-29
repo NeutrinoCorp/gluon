@@ -136,17 +136,15 @@ func (b *Bus) ListSubscribersFromTopic(t string) []*Subscriber {
 	return b.subscriberRegistry.get(t)
 }
 
-// PublishBulk Propagate multiple messages to the ecosystem.
-func (b *Bus) PublishBulk(ctx context.Context, data ...interface{}) error {
-	errs := new(multierror.Error)
-
-	for _, d := range data {
-		if err := b.Publish(ctx, d); err != nil {
-			errs = multierror.Append(err, errs)
-		}
+// Publish Propagate a message to the ecosystem using the internal topic registry agent to generate the topic.
+//
+// 	Note: To propagate correlation and causation IDs, use Subscription's context.
+func (b *Bus) Publish(ctx context.Context, data interface{}) error {
+	msg, err := b.generateTransportMessage(data)
+	if err != nil {
+		return err
 	}
-
-	return errs.ErrorOrNil()
+	return b.publish(ctx, msg)
 }
 
 // PublishWithSubject Propagate a message to the ecosystem using the internal topic registry agent to generate the topic.
@@ -159,6 +157,17 @@ func (b *Bus) PublishWithSubject(ctx context.Context, data interface{}, subject 
 	}
 	msg.Subject = subject
 	return b.publish(ctx, msg)
+}
+
+// PublishBulk Propagate multiple messages to the ecosystem.
+func (b *Bus) PublishBulk(ctx context.Context, data ...interface{}) error {
+	errs := new(multierror.Error)
+	for _, d := range data {
+		if err := b.Publish(ctx, d); err != nil {
+			errs = multierror.Append(err, errs)
+		}
+	}
+	return errs.ErrorOrNil()
 }
 
 func (b *Bus) generateTransportMessage(data interface{}) (*TransportMessage, error) {
@@ -190,47 +199,6 @@ func (b *Bus) generateTransportMessage(data interface{}) (*TransportMessage, err
 	}, nil
 }
 
-// Publish Propagate a message to the ecosystem using the internal topic registry agent to generate the topic.
-//
-// 	Note: To propagate correlation and causation IDs, use Subscription's context.
-func (b *Bus) Publish(ctx context.Context, data interface{}) error {
-	msg, err := b.generateTransportMessage(data)
-	if err != nil {
-		return err
-	}
-	return b.publish(ctx, msg)
-}
-
-func (b *Bus) injectContextToMessage(ctx context.Context, msg *TransportMessage) {
-	if correlation, ok := ctx.Value(contextCorrelationID).(gluonContextKey); ok {
-		msg.CorrelationID = string(correlation)
-	} else {
-		msg.CorrelationID = msg.ID
-	}
-
-	if causation, ok := ctx.Value(contextMessageID).(gluonContextKey); ok {
-		msg.CausationID = string(causation)
-	} else {
-		msg.CausationID = msg.ID
-	}
-}
-
-// PublishRaw Propagate a raw `Gluon` internal message to the ecosystem.
-func (b *Bus) PublishRaw(ctx context.Context, msg *TransportMessage) error {
-	return b.publish(ctx, msg)
-}
-
-func (b *Bus) publish(ctx context.Context, msg *TransportMessage) error {
-	b.injectContextToMessage(ctx, msg)
-	handlerFunc := b.driver.Publish
-	for _, mw := range b.publisherMiddleware {
-		if mw != nil {
-			handlerFunc = mw(handlerFunc)
-		}
-	}
-	return handlerFunc(ctx, msg)
-}
-
 func (b *Bus) getDataSchema(meta MessageMetadata) string {
 	if meta.SchemaURI != "" {
 		return meta.SchemaURI
@@ -243,6 +211,37 @@ func (b *Bus) getSchemaVersion(meta MessageMetadata) int {
 		return meta.SchemaVersion
 	}
 	return b.Configuration.MajorVersion
+}
+
+// PublishRaw Propagate a raw `Gluon` internal message to the ecosystem.
+func (b *Bus) PublishRaw(ctx context.Context, msg *TransportMessage) error {
+	return b.publish(ctx, msg)
+}
+
+func (b *Bus) publish(ctx context.Context, msg *TransportMessage) error {
+	b.injectMessageContext(ctx, msg)
+	var handlerFunc PublisherFunc
+	handlerFunc = b.driver.Publish
+	for _, mw := range b.publisherMiddleware {
+		if mw != nil {
+			handlerFunc = mw(handlerFunc)
+		}
+	}
+	return handlerFunc(ctx, msg)
+}
+
+func (b *Bus) injectMessageContext(ctx context.Context, msg *TransportMessage) {
+	if correlation, ok := ctx.Value(contextCorrelationID).(gluonContextKey); ok {
+		msg.CorrelationID = string(correlation)
+	} else {
+		msg.CorrelationID = msg.ID
+	}
+
+	if causation, ok := ctx.Value(contextMessageID).(gluonContextKey); ok {
+		msg.CausationID = string(causation)
+	} else {
+		msg.CausationID = msg.ID
+	}
 }
 
 // Shutdown Close a Bus and its internal resources gracefully.
