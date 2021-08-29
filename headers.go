@@ -16,7 +16,7 @@ const (
 )
 
 func generateHeaders(msg *TransportMessage, sub *Subscriber) map[string]interface{} {
-	return map[string]interface{}{
+	headers := map[string]interface{}{
 		headerMessageID:     msg.ID,
 		headerSource:        msg.Source,
 		headerSpecVersion:   msg.SpecVersion,
@@ -30,4 +30,8 @@ func generateHeaders(msg *TransportMessage, sub *Subscriber) map[string]interfac
 		headerTime:          msg.Time,
 		headerConsumerGroup: sub.group,
 	}
+	for k, v := range msg.DriverHeaders {
+		headers[k] = v
+	}
+	return headers
 }
