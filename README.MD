@@ -1,2 +1,2 @@
 # :sparkler: Gluon
-Resilient mechanisms for Event-Driven systems written in Go.
+A composable message bus for Event-Driven systems written in Go.
