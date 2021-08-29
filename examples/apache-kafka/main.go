@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	_ "github.com/neutrinocorp/gkafka"
 	"github.com/neutrinocorp/gluon"
+	_ "github.com/neutrinocorp/gluon/gkafka"
 )
 
 type ItemPaid struct {
