@@ -2,12 +2,6 @@ package gluon
 
 import "context"
 
-// Publisher Is a component used by `Gluon` to propagate low-level messages.
-type Publisher interface {
-	// Publish Propagate a low-level message (CloudEvent) to the message bus.
-	Publish(ctx context.Context, message *TransportMessage) error
-}
-
 // PublisherFunc Is an anonymous function used by `Gluon` to propagate low-level messages.
 type PublisherFunc func(ctx context.Context, message *TransportMessage) error
 
