@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"log"
-	"strconv"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -190,7 +189,7 @@ func (b *Bus) generateTransportMessage(data interface{}) (*TransportMessage, err
 		ID:              msgID,
 		Source:          meta.Source,
 		SpecVersion:     CloudEventsSpecVersion,
-		Type:            meta.Topic + ".v" + strconv.Itoa(b.getSchemaVersion(meta)),
+		Type:            meta.Topic,
 		DataContentType: b.Marshaler.GetContentType(),
 		DataSchema:      b.getDataSchema(meta),
 		Time:            time.Now().UTC().Format(time.RFC3339),
