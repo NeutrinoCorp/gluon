@@ -90,14 +90,21 @@ func (s *snsSqsSubscriptionWorker) processMessage(snsMessage types.Message) {
 
 func (s *snsSqsSubscriptionWorker) execMessageHandler(snsMessage types.Message, msg *gluon.TransportMessage,
 	sub *gluon.Subscriber) {
-	// if procs failed, change message visibility to backoff value
-	// if procs succeed, remove message from queue
+	// A. If processing succeed, remove message from queue; AWS SQS will consider this action as a
+	// successful processing.
+	//
+	// B. If processing failed, do nothing; AWS SQS Queue should be configured with a re-drive policy to a
+	// Dead-Letter queue (DLQ) when a delivery count is equal to a factor specified by the developer.
+	// Nevertheless, the developer should be aware of the VisibilityTimeout factor as AWS SQS uses it to re-deliver
+	// messages to other subscribers/pollers.
+	//
+	// For more information, look here:
+	// https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-visibility-timeout.html#inflight-messages
 	scopedCtx := context.Background()
 	queueUrl := aws.String(generateSqsQueueUrl(s.parentDriver.config, s.getDefaultConsumerGroup(sub)))
 	err := s.parentDriver.messageHandler(scopedCtx, sub, msg)
 	s.logError(err)
 	if err != nil {
-		s.logError(err)
 		return
 	}
 
