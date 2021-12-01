@@ -9,6 +9,7 @@ const (
 	defaultWaitTimeSeconds           = 5
 	defaultFailedProcessBackoff      = 3
 	defaultMaxNumberOfMessagesPolled = 10
+	defaultMaxBatchPollingRetries    = 5
 )
 
 type SnsSqsConfig struct {
@@ -18,6 +19,7 @@ type SnsSqsConfig struct {
 	VisibilityTimeout         int32
 	WaitTimeSeconds           int32
 	FailedProcessBackoff      int32
+	MaxBatchPollingRetries    int
 }
 
 func (c SnsSqsConfig) GetMaxNumberOfMessagesPolled() int32 {
@@ -46,4 +48,11 @@ func (c SnsSqsConfig) GetFailedProcessBackoff() int32 {
 		return defaultFailedProcessBackoff
 	}
 	return c.FailedProcessBackoff
+}
+
+func (c SnsSqsConfig) GetMaxBatchPollingRetries() int {
+	if c.MaxBatchPollingRetries == 0 {
+		return defaultMaxBatchPollingRetries
+	}
+	return c.MaxBatchPollingRetries
 }

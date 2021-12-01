@@ -20,13 +20,25 @@ type ItemPaid struct {
 	PaidAt   time.Time `json:"paid_at"`
 }
 
+func logMiddleware(next gluon.HandlerFunc) gluon.HandlerFunc {
+	return func(ctx context.Context, msg *gluon.Message) error {
+		log.Printf("stdout::Logger:consumer:%+v\n", msg)
+		log.Printf("stdout::Logger:consumer:%s\n", msg.Data)
+		return next(ctx, msg)
+	}
+}
+
 func main() {
+	logger := log.New(os.Stdout, "", 0)
 	cfg, _ := config.LoadDefaultConfig(context.TODO())
 	bus := gluon.NewBus("aws_sns_sqs",
 		gluon.WithConsumerGroup("ncorp-business_analytics-places-prod-1"),
+		gluon.WithLogging(true),
+		gluon.WithLogger(logger),
+		gluon.WithConsumerMiddleware(logMiddleware),
 		gluon.WithDriverConfiguration(gaws.SnsSqsConfig{
 			AwsConfig: cfg,
-			AccountID: "228850758643",
+			AccountID: "1234567890",
 		}))
 	registerEventSchemas(bus)
 	subscribeToMessages(bus)

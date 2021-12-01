@@ -8,10 +8,9 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/neutrinocorp/gluon/gaws"
-
 	"github.com/google/uuid"
 	"github.com/neutrinocorp/gluon"
+	"github.com/neutrinocorp/gluon/gaws"
 )
 
 type ItemPaid struct {
@@ -41,7 +40,7 @@ func logMiddleware(next gluon.HandlerFunc) gluon.HandlerFunc {
 
 func logProducerMiddleware(next gluon.PublisherFunc) gluon.PublisherFunc {
 	return func(ctx context.Context, message *gluon.TransportMessage) error {
-		log.Print("producing message")
+		log.Printf("[TOPIC-%s] producing message", message.Topic)
 		return next(ctx, message)
 	}
 }
@@ -55,7 +54,7 @@ func main() {
 			log.Fatal(err)
 		}
 	}()
-	// go publishMessage(bus)
+	go publishMessage(bus)
 	gracefulShutdown(bus)
 }
 
@@ -65,14 +64,14 @@ func newBus() *gluon.Bus {
 	bus := gluon.NewBus("aws_sns_sqs",
 		gluon.WithRemoteSchemaRegistry("https://pubsub.neutrino.org/marketplace/schemas"),
 		gluon.WithMajorVersion(2),
-		gluon.WithLoggingOption(true),
+		gluon.WithLogging(true),
 		gluon.WithLogger(logger),
 		gluon.WithPublisherMiddleware(logProducerMiddleware),
 		gluon.WithConsumerMiddleware(logMiddleware),
 		gluon.WithConsumerGroup("ncorp-places-marketplace-prod-1"),
 		gluon.WithDriverConfiguration(gaws.SnsSqsConfig{
 			AwsConfig: cfg,
-			AccountID: "228850758643",
+			AccountID: "1234567890",
 		}))
 	return bus
 }
@@ -90,7 +89,7 @@ func registerSchemas(bus *gluon.Bus) {
 		gluon.WithSchemaVersion(1))
 
 	bus.RegisterSchema(OrderDelivered{},
-		gluon.WithTopic("ncorp.places.transport.prod.1.event.package.delivered"),
+		gluon.WithTopic("ncorp.places.transports.prod.1.event.package.delivered"),
 		gluon.WithSource("https://api.neutrino.org/transport/orders"),
 		gluon.WithRemoteSchema("https://pubsub.neutrino.org/transport/schemas"))
 }

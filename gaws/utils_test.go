@@ -136,6 +136,16 @@ var generateSqsQueueUrlTestSuite = []struct {
 		group: "ncorp-places-marketplace-dev-1",
 		exp:   "https://sqs.us-east-1.amazonaws.com/1234567890/ncorp-places-marketplace-dev-1",
 	},
+	{
+		config: SnsSqsConfig{
+			AwsConfig: aws.Config{
+				Region: "us-east-1",
+			},
+			AccountID: "1234567890",
+		},
+		group: "ncorp.places.marketplace.dev.1",
+		exp:   "https://sqs.us-east-1.amazonaws.com/1234567890/ncorp-places-marketplace-dev-1",
+	},
 }
 
 func TestGenerateSqsQueueUrl(t *testing.T) {
