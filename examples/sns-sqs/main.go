@@ -32,13 +32,17 @@ func main() {
 	logger := log.New(os.Stdout, "", 0)
 	cfg, _ := config.LoadDefaultConfig(context.TODO())
 	bus := gluon.NewBus("aws_sns_sqs",
-		gluon.WithConsumerGroup("ncorp-business_analytics-places-prod-1"),
 		gluon.WithLogging(true),
 		gluon.WithLogger(logger),
 		gluon.WithConsumerMiddleware(logMiddleware),
 		gluon.WithDriverConfiguration(gaws.SnsSqsConfig{
-			AwsConfig: cfg,
-			AccountID: "1234567890",
+			AwsConfig:                 cfg,
+			AccountID:                 "1234567890",
+			MaxNumberOfMessagesPolled: 0,
+			VisibilityTimeout:         0,
+			WaitTimeSeconds:           0,
+			MaxBatchPollingRetries:    3, // leave this as 0 if it is desired to keep workers running on failing scenarios
+			FailedPollingBackoff:      time.Second * 3,
 		}))
 	registerEventSchemas(bus)
 	subscribeToMessages(bus)
@@ -59,10 +63,12 @@ func registerEventSchemas(bus *gluon.Bus) {
 }
 
 func subscribeToMessages(bus *gluon.Bus) {
-	bus.Subscribe(ItemPaid{}).HandlerFunc(func(ctx context.Context, msg *gluon.Message) error {
-		log.Print(msg.Data)
-		return nil
-	})
+	bus.Subscribe(ItemPaid{}).
+		Group("ncorp.wallet.core.prod.2.add_transaction.on.item_pai").
+		HandlerFunc(func(ctx context.Context, msg *gluon.Message) error {
+			log.Print(msg.Data)
+			return nil
+		})
 }
 
 func publishMessage(bus *gluon.Bus) {

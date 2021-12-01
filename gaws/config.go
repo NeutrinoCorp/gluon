@@ -1,15 +1,17 @@
 package gaws
 
 import (
+	"time"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 )
 
 const (
 	defaultVisibilityTimeout         = 10
 	defaultWaitTimeSeconds           = 5
-	defaultFailedProcessBackoff      = 3
 	defaultMaxNumberOfMessagesPolled = 10
-	defaultMaxBatchPollingRetries    = 5
+	defaultMaxBatchPollingRetries    = 0
+	defaultFailedPollingBackoff      = time.Second * 5
 )
 
 type SnsSqsConfig struct {
@@ -18,8 +20,8 @@ type SnsSqsConfig struct {
 	MaxNumberOfMessagesPolled int32
 	VisibilityTimeout         int32
 	WaitTimeSeconds           int32
-	FailedProcessBackoff      int32
 	MaxBatchPollingRetries    int
+	FailedPollingBackoff      time.Duration
 }
 
 func (c SnsSqsConfig) GetMaxNumberOfMessagesPolled() int32 {
@@ -43,15 +45,15 @@ func (c SnsSqsConfig) GetWaitTimeSeconds() int32 {
 	return c.WaitTimeSeconds
 }
 
-func (c SnsSqsConfig) GetFailedProcessBackoff() int32 {
-	if c.FailedProcessBackoff == 0 {
-		return defaultFailedProcessBackoff
+func (c SnsSqsConfig) GetFailedPollingBackoff() time.Duration {
+	if c.FailedPollingBackoff == 0 {
+		return defaultFailedPollingBackoff
 	}
-	return c.FailedProcessBackoff
+	return c.FailedPollingBackoff
 }
 
 func (c SnsSqsConfig) GetMaxBatchPollingRetries() int {
-	if c.MaxBatchPollingRetries == 0 {
+	if c.MaxBatchPollingRetries <= 0 {
 		return defaultMaxBatchPollingRetries
 	}
 	return c.MaxBatchPollingRetries
