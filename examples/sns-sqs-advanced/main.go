@@ -64,7 +64,6 @@ func newBus() *gluon.Bus {
 	bus := gluon.NewBus("aws_sns_sqs",
 		gluon.WithRemoteSchemaRegistry("https://pubsub.neutrino.org/marketplace/schemas"),
 		gluon.WithMajorVersion(2),
-		gluon.WithLogging(true),
 		gluon.WithLogger(logger),
 		gluon.WithPublisherMiddleware(logProducerMiddleware),
 		gluon.WithConsumerMiddleware(logMiddleware),

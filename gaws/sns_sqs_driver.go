@@ -84,5 +84,5 @@ func (d *snsSqsDriver) Publish(ctx context.Context, message *gluon.TransportMess
 }
 
 func (d *snsSqsDriver) isLoggingEnabled() bool {
-	return d.parentBus.Configuration.EnableLogging && d.parentBus.Logger != nil
+	return d.parentBus.Logger != nil
 }

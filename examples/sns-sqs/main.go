@@ -32,7 +32,6 @@ func main() {
 	logger := log.New(os.Stdout, "", 0)
 	cfg, _ := config.LoadDefaultConfig(context.TODO())
 	bus := gluon.NewBus("aws_sns_sqs",
-		gluon.WithLogging(true),
 		gluon.WithLogger(logger),
 		gluon.WithConsumerMiddleware(logMiddleware),
 		gluon.WithDriverConfiguration(gaws.SnsSqsConfig{

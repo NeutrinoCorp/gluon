@@ -43,7 +43,6 @@ func NewBus(driver string, opts ...Option) *Bus {
 		Configuration: BusConfiguration{
 			RemoteSchemaRegistryURI: options.remoteSchemaRegistryURL,
 			MajorVersion:            options.majorVersion,
-			EnableLogging:           options.enableLogging,
 			Driver:                  options.driverConfig,
 			ConsumerGroup:           options.consumerGroup,
 		},
@@ -249,5 +248,5 @@ func (b *Bus) Shutdown(ctx context.Context) error {
 }
 
 func (b *Bus) isLoggerEnabled() bool {
-	return b.Logger != nil && b.Configuration.EnableLogging
+	return b.Logger != nil
 }

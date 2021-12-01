@@ -106,17 +106,6 @@ func WithMajorVersion(v int) Option {
 	return majorVersionOption(v)
 }
 
-type enableLoggingOption bool
-
-func (o enableLoggingOption) apply(opts *options) {
-	opts.enableLogging = bool(o)
-}
-
-// WithLogging Enable Bus internal operation(s) logs.
-func WithLogging(v bool) Option {
-	return enableLoggingOption(v)
-}
-
 type consumerGroupOption string
 
 func (o consumerGroupOption) apply(opts *options) {
