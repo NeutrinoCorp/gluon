@@ -7,9 +7,10 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/google/uuid"
 	"github.com/neutrinocorp/gluon"
-	_ "github.com/neutrinocorp/gluon/gkafka"
+	"github.com/neutrinocorp/gluon/gaws"
 )
 
 type ItemPaid struct {
@@ -39,7 +40,7 @@ func logMiddleware(next gluon.HandlerFunc) gluon.HandlerFunc {
 
 func logProducerMiddleware(next gluon.PublisherFunc) gluon.PublisherFunc {
 	return func(ctx context.Context, message *gluon.TransportMessage) error {
-		log.Print("producing message")
+		log.Printf("[TOPIC-%s] producing message", message.Topic)
 		return next(ctx, message)
 	}
 }
@@ -59,37 +60,43 @@ func main() {
 
 func newBus() *gluon.Bus {
 	logger := log.New(os.Stdout, "", 0)
-	bus := gluon.NewBus("kafka",
-		gluon.WithCluster("localhost:9092", "localhost:9093", "localhost:9094"),
+	cfg, _ := config.LoadDefaultConfig(context.TODO())
+	bus := gluon.NewBus("aws_sns_sqs",
 		gluon.WithRemoteSchemaRegistry("https://pubsub.neutrino.org/marketplace/schemas"),
 		gluon.WithMajorVersion(2),
 		gluon.WithLogging(true),
 		gluon.WithLogger(logger),
 		gluon.WithPublisherMiddleware(logProducerMiddleware),
-		gluon.WithConsumerMiddleware(logMiddleware))
+		gluon.WithConsumerMiddleware(logMiddleware),
+		gluon.WithConsumerGroup("ncorp-places-marketplace-prod-1"),
+		gluon.WithDriverConfiguration(gaws.SnsSqsConfig{
+			AwsConfig: cfg,
+			AccountID: "1234567890",
+		}))
 	return bus
 }
 
 func registerSchemas(bus *gluon.Bus) {
 	bus.RegisterSchema(ItemPaid{},
-		gluon.WithTopic("org.neutrino.marketplace.item.paid"),
-		gluon.WithSource("https://api.neutrino.org/marketplace/items"))
+		gluon.WithTopic("ncorp.places.marketplace.prod.2.event.item.paid"),
+		gluon.WithSource("https://api.neutrino.org/marketplace/items"),
+		gluon.WithSchemaVersion(2))
 
 	bus.RegisterSchema(OrderSent{},
-		gluon.WithTopic("org.neutrino.warehouse.order.sent"),
-		gluon.WithSource("https://api.neutrino.org/warehouse/orders"),
+		gluon.WithTopic("ncorp.places.warehouse.prod.1.event.package.sent"),
+		gluon.WithSource("https://api.neutrino.org/warehouse/packages"),
 		gluon.WithRemoteSchema("https://pubsub.neutrino.org/warehouse/schemas"),
-		gluon.WithSchemaVersion(5))
+		gluon.WithSchemaVersion(1))
 
 	bus.RegisterSchema(OrderDelivered{},
-		gluon.WithTopic("org.neutrino.warehouse.order.delivered"),
-		gluon.WithSource("https://api.neutrino.org/warehouse/orders"),
-		gluon.WithRemoteSchema("https://pubsub.neutrino.org/warehouse/schemas"))
+		gluon.WithTopic("ncorp.places.transports.prod.1.event.package.delivered"),
+		gluon.WithSource("https://api.neutrino.org/transport/orders"),
+		gluon.WithRemoteSchema("https://pubsub.neutrino.org/transport/schemas"))
 }
 
 func registerSubscribers(bus *gluon.Bus) {
 	bus.Subscribe(ItemPaid{}).
-		Group("warehouse-service").
+		Group("ncorp-places-warehouse-prod-1").
 		HandlerFunc(func(ctx context.Context, message *gluon.Message) error {
 			event := message.Data.(ItemPaid)
 			log.Printf("[WAREHOUSE_SERVICE] | Item %s has been paid at %s, total was %f", event.ItemID,
@@ -103,7 +110,7 @@ func registerSubscribers(bus *gluon.Bus) {
 		})
 
 	bus.Subscribe(OrderSent{}).
-		Group("warehouse-service").
+		Group("ncorp-places-warehouse-prod-1").
 		HandlerFunc(func(ctx context.Context, message *gluon.Message) error {
 			event := message.Data.(OrderSent)
 			log.Printf("[WAREHOUSE_SERVICE] | Order %s has been sent at %s", event.OrderID,
@@ -117,7 +124,7 @@ func registerSubscribers(bus *gluon.Bus) {
 		})
 
 	bus.Subscribe(OrderDelivered{}).
-		Group("customer-analytics-service").
+		Group("ncorp-places-analytics-prod-1").
 		HandlerFunc(func(ctx context.Context, message *gluon.Message) error {
 			event := message.Data.(OrderDelivered)
 			log.Printf("[CUSTOMER_ANALYTICS_SERVICE] | Order %s has been delivered at %s", event.OrderID,

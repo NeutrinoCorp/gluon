@@ -112,8 +112,8 @@ func (o enableLoggingOption) apply(opts *options) {
 	opts.enableLogging = bool(o)
 }
 
-// WithLoggingOption Enable Bus internal operation(s) logs.
-func WithLoggingOption(v bool) Option {
+// WithLogging Enable Bus internal operation(s) logs.
+func WithLogging(v bool) Option {
 	return enableLoggingOption(v)
 }
 

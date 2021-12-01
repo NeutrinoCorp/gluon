@@ -21,7 +21,7 @@ type MessageMetadata struct {
 	schemaInternalType reflect.Type
 }
 
-// schemaRegistry Is a concurrent-safe internal agent which relations message concrete types to useful metadata.
+// schemaRegistry Is a concurrent-safe internal database which relations message concrete types to useful metadata.
 //
 // The metadata is composed by the message's topic name, source, data schema URI and subject. Most of the previous
 // fields come from the CloudEvents specification.
