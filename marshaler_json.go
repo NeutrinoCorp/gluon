@@ -1,10 +1,16 @@
 package gluon
 
-import "encoding/json"
+import (
+	json "github.com/json-iterator/go"
+)
 
 type MarshalerJSON struct{}
 
 var _ Marshaler = MarshalerJSON{}
+
+func (m MarshalerJSON) SetParentBus(b *Bus) {
+	return
+}
 
 func (m MarshalerJSON) GetContentType() string {
 	return "application/json"

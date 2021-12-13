@@ -3,6 +3,7 @@ package gluon
 import (
 	"errors"
 	"reflect"
+	"strings"
 	"sync"
 )
 
@@ -18,7 +19,8 @@ type MessageMetadata struct {
 	SchemaURI     string
 	SchemaVersion int
 
-	schemaInternalType reflect.Type
+	schemaInternalType       reflect.Type
+	schemaInternalDefinition interface{}
 }
 
 // schemaRegistry Is a concurrent-safe internal database which relations message concrete types to useful metadata.
@@ -53,14 +55,17 @@ func (r *schemaRegistry) register(schema interface{}, meta MessageMetadata) {
 	r.registry[schemaType.String()] = &meta
 }
 
-func (r *schemaRegistry) get(schema interface{}) (MessageMetadata, error) {
+func (r *schemaRegistry) get(schema interface{}) (*MessageMetadata, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	typeStr := reflect.TypeOf(schema).String()
+	// Note: remove references to a native type
+	// this helps marshalers which depend on the internal schema registry as they receive pointers when decoding
+	typeStr = strings.Replace(typeStr, "*", "", 1)
 	if meta, ok := r.registry[typeStr]; ok {
-		return *meta, nil
+		return meta, nil
 	}
-	return MessageMetadata{}, ErrMessageNotRegistered
+	return nil, ErrMessageNotRegistered
 }
 
 func (r *schemaRegistry) getByTopic(t string) *MessageMetadata {

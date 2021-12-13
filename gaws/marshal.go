@@ -1,10 +1,10 @@
 package gaws
 
 import (
-	"encoding/json"
 	"errors"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	json "github.com/json-iterator/go"
 	"github.com/neutrinocorp/gluon"
 )
 

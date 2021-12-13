@@ -84,13 +84,13 @@ func registerSchemas(bus *gluon.Bus) {
 	bus.RegisterSchema(OrderSent{},
 		gluon.WithTopic("ncorp.places.warehouse.prod.1.event.package.sent"),
 		gluon.WithSource("https://api.neutrino.org/warehouse/packages"),
-		gluon.WithRemoteSchema("https://pubsub.neutrino.org/warehouse/schemas"),
+		gluon.WithSchemaDefinition("https://pubsub.neutrino.org/warehouse/schemas"),
 		gluon.WithSchemaVersion(1))
 
 	bus.RegisterSchema(OrderDelivered{},
 		gluon.WithTopic("ncorp.places.transports.prod.1.event.package.delivered"),
 		gluon.WithSource("https://api.neutrino.org/transport/orders"),
-		gluon.WithRemoteSchema("https://pubsub.neutrino.org/transport/schemas"))
+		gluon.WithSchemaDefinition("https://pubsub.neutrino.org/transport/schemas"))
 }
 
 func registerSubscribers(bus *gluon.Bus) {
@@ -117,7 +117,7 @@ func registerSubscribers(bus *gluon.Bus) {
 			log.Printf("[WAREHOUSE_SERVICE] | Message metadata: id: %s, correlation: %s, causation: %s",
 				message.GetMessageID(), message.GetCorrelationID(), message.GetCausationID())
 			return bus.Publish(ctx, OrderDelivered{
-				OrderID:     uuid.NewString(),
+				OrderID:     event.OrderID,
 				DeliveredAt: time.Now().UTC(),
 			})
 		})

@@ -1,0 +1,27 @@
+{
+  "type": "record",
+  "name": "Employee",
+  "namespace": "org.neutrino.internal.organization",
+  "fields": [
+    {"name": "employee_id", "type": "int"},
+    {"name": "country_id", "type": "int"},
+    {"name": "organization_unit", "type": "string"},
+    {"name": "name", "type": "string"},
+    {"name": "salary", "type": "float"},
+    {"name": "projects", "type": {
+      "type": "array",
+      "items": {
+        "type": "record",
+        "name": "Project",
+        "fields": [
+          {"name": "project_id", "type": "int"},
+          {"name": "name", "type": "string"},
+          {"name": "start_date", "type": "string"},
+          {"name": "end_date", "type": "string"},
+          {"name": "is_active", "type": "boolean"}
+        ]
+      }
+    }
+    }
+  ]
+}

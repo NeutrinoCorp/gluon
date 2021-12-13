@@ -13,20 +13,20 @@ import (
 )
 
 type ItemPaid struct {
-	ItemID   string    `json:"item_id"`
-	Total    float64   `json:"total"`
-	Quantity int       `json:"quantity"`
-	PaidAt   time.Time `json:"paid_at"`
+	ItemID   string    `avro:"item_id"`
+	Total    float32   `avro:"total"`
+	Quantity int       `avro:"quantity"`
+	PaidAt   time.Time `avro:"paid_at"`
 }
 
 type OrderSent struct {
-	OrderID string    `json:"order_id"`
-	SentAt  time.Time `json:"sent_at"`
+	OrderID string    `avro:"order_id"`
+	SentAt  time.Time `avro:"sent_at"`
 }
 
 type OrderDelivered struct {
-	OrderID     string    `json:"order_id"`
-	DeliveredAt time.Time `json:"delivered_at"`
+	OrderID     string    `avro:"order_id"`
+	DeliveredAt time.Time `avro:"delivered_at"`
 }
 
 func logMiddleware(next gluon.HandlerFunc) gluon.HandlerFunc {
@@ -64,6 +64,7 @@ func newBus() *gluon.Bus {
 		gluon.WithRemoteSchemaRegistry("https://pubsub.neutrino.org/marketplace/schemas"),
 		gluon.WithMajorVersion(2),
 		gluon.WithLogger(logger),
+		gluon.WithMarshaler(gluon.NewMarshalerAvro()),
 		gluon.WithPublisherMiddleware(logProducerMiddleware),
 		gluon.WithConsumerMiddleware(logMiddleware))
 	return bus
@@ -72,18 +73,19 @@ func newBus() *gluon.Bus {
 func registerSchemas(bus *gluon.Bus) {
 	bus.RegisterSchema(ItemPaid{},
 		gluon.WithTopic("org.neutrino.marketplace.item.paid"),
+		gluon.WithSchemaDefinition("./testdata/item_paid.avsc"),
 		gluon.WithSource("https://api.neutrino.org/marketplace/items"))
 
 	bus.RegisterSchema(OrderSent{},
 		gluon.WithTopic("org.neutrino.warehouse.order.sent"),
 		gluon.WithSource("https://api.neutrino.org/warehouse/orders"),
-		gluon.WithSchemaDefinition("https://pubsub.neutrino.org/warehouse/schemas"),
+		gluon.WithSchemaDefinition("./testdata/order_sent.avsc"),
 		gluon.WithSchemaVersion(5))
 
 	bus.RegisterSchema(OrderDelivered{},
 		gluon.WithTopic("org.neutrino.warehouse.order.delivered"),
 		gluon.WithSource("https://api.neutrino.org/warehouse/orders"),
-		gluon.WithSchemaDefinition("https://pubsub.neutrino.org/warehouse/schemas"))
+		gluon.WithSchemaDefinition("./testdata/order_delivered.avsc"))
 }
 
 func registerSubscribers(bus *gluon.Bus) {
