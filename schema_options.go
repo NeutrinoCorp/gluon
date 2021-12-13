@@ -40,8 +40,8 @@ func (o schemaURIOption) apply(opts *schemaRegistryOptions) {
 	opts.schemaURI = string(o)
 }
 
-// WithRemoteSchema Set a remote schema registry reference (URI) to a message schema.
-func WithRemoteSchema(s string) SchemaRegistryOption {
+// WithSchemaDefinition Set a schema definition from a file path or URL.
+func WithSchemaDefinition(s string) SchemaRegistryOption {
 	return schemaURIOption(s)
 }
 

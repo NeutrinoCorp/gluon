@@ -1,0 +1,11 @@
+{
+  "type": "record",
+  "name": "ItemPaid",
+  "namespace": "org.neutrino.marketplace",
+  "fields": [
+    {"name": "item_id", "type": "string"},
+    {"name": "total", "type": "float"},
+    {"name": "quantity", "type": "int"},
+    {"name": "paid_at", "type": "string"}
+  ]
+}

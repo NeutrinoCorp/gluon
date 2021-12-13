@@ -1,0 +1,9 @@
+{
+  "type": "record",
+  "name": "OrderDelivered",
+  "namespace": "org.neutrino.warehouse",
+  "fields": [
+    {"name": "order_id", "type": "string"},
+    {"name": "delivered_at", "type": "string"}
+  ]
+}

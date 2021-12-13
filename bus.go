@@ -88,6 +88,7 @@ func (b *Bus) RegisterSchema(schema interface{}, opts ...SchemaRegistryOption) {
 // ListenAndServe Bootstrap and start a Bus along its internal components (subscribers).
 func (b *Bus) ListenAndServe() error {
 	b.driver.SetParentBus(b)
+	b.Marshaler.SetParentBus(b)
 	b.driver.SetInternalHandler(getInternalHandler(b))
 	if err := b.driver.Start(b.BaseContext); err != nil {
 		return err
@@ -197,7 +198,7 @@ func (b *Bus) generateTransportMessage(data interface{}) (*TransportMessage, err
 	}, nil
 }
 
-func (b *Bus) getDataSchema(meta MessageMetadata) string {
+func (b *Bus) getDataSchema(meta *MessageMetadata) string {
 	if meta.SchemaURI != "" {
 		return meta.SchemaURI
 	}
