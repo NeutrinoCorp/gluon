@@ -139,7 +139,23 @@ func (b *Bus) ListSubscribersFromTopic(t string) []*Subscriber {
 //
 // 	Note: To propagate correlation and causation IDs, use Subscription's context.
 func (b *Bus) Publish(ctx context.Context, data interface{}) error {
-	msg, err := b.generateTransportMessage(data)
+	meta, err := b.schemaRegistry.get(data)
+	if err != nil {
+		return err
+	}
+	msg, err := b.generateTransportMessage(meta, data)
+	if err != nil {
+		return err
+	}
+	return b.publish(ctx, msg)
+}
+
+// PublishWithTopic Propagate a message to the ecosystem using the internal topic registry agent to generate the topic.
+//
+// 	Note: To propagate correlation and causation IDs, use Subscription's context.
+func (b *Bus) PublishWithTopic(ctx context.Context, topic string, data interface{}) error {
+	meta := b.schemaRegistry.getByTopic(topic)
+	msg, err := b.generateTransportMessage(meta, data)
 	if err != nil {
 		return err
 	}
@@ -150,7 +166,11 @@ func (b *Bus) Publish(ctx context.Context, data interface{}) error {
 //
 // This method also exposes the `Subject` property to define the CloudEvent property with the same name.
 func (b *Bus) PublishWithSubject(ctx context.Context, data interface{}, subject string) error {
-	msg, err := b.generateTransportMessage(data)
+	meta, err := b.schemaRegistry.get(data)
+	if err != nil {
+		return err
+	}
+	msg, err := b.generateTransportMessage(meta, data)
 	if err != nil {
 		return err
 	}
@@ -169,12 +189,7 @@ func (b *Bus) PublishBulk(ctx context.Context, data ...interface{}) error {
 	return errs.ErrorOrNil()
 }
 
-func (b *Bus) generateTransportMessage(data interface{}) (*TransportMessage, error) {
-	meta, err := b.schemaRegistry.get(data)
-	if err != nil {
-		return nil, err
-	}
-
+func (b *Bus) generateTransportMessage(meta *MessageMetadata, data interface{}) (*TransportMessage, error) {
 	msgID, err := b.Factories.IDFactory.NewID()
 	if err != nil {
 		return nil, err

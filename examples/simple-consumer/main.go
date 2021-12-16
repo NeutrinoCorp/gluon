@@ -116,7 +116,7 @@ func registerSubscribers(bus *gluon.Bus) {
 
 func publishMessage(bus *gluon.Bus) {
 	rootCtx := context.TODO()
-	err := bus.Publish(rootCtx, ItemPaid{
+	err := bus.PublishWithTopic(rootCtx, "org.neutrino.marketplace.item.paid", ItemPaid{
 		ItemID:   uuid.NewString(),
 		Total:    99.99,
 		Quantity: 2,
