@@ -263,6 +263,11 @@ func (b *Bus) GetSchemaMetadata(schema interface{}) (*MessageMetadata, error) {
 	return b.schemaRegistry.get(schema)
 }
 
+// GetSchemaMetadataFromTopic retrieves metadata from the internal schema registry using the topic name
+func (b *Bus) GetSchemaMetadataFromTopic(topic string) *MessageMetadata {
+	return b.schemaRegistry.getByTopic(topic)
+}
+
 // Shutdown Close a Bus and its internal resources gracefully.
 func (b *Bus) Shutdown(ctx context.Context) error {
 	return b.driver.Shutdown(ctx)
