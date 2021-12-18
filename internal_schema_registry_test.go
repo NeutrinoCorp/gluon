@@ -22,7 +22,7 @@ var messageRegistryTestCases = []struct {
 		Want: MessageMetadata{
 			Topic:         "org.neutrino.dummy.triggered",
 			Source:        "",
-			SchemaURI:     "",
+			SchemaName:    "",
 			SchemaVersion: 1,
 		},
 	},
@@ -33,7 +33,7 @@ var messageRegistryTestCases = []struct {
 		Want: MessageMetadata{
 			Topic:         "org.neutrino.sensor.activated",
 			Source:        "",
-			SchemaURI:     "",
+			SchemaName:    "",
 			SchemaVersion: 10,
 		},
 	},
@@ -42,7 +42,7 @@ var messageRegistryTestCases = []struct {
 		Want: MessageMetadata{
 			Topic:         "org.neutrino.string.registered",
 			Source:        "",
-			SchemaURI:     "",
+			SchemaName:    "",
 			SchemaVersion: -1,
 		},
 	},
@@ -53,13 +53,13 @@ type sensorDummyEvent struct {
 }
 
 func TestSchemaRegistry_Register(t *testing.T) {
-	registry := newSchemaRegistry()
+	registry := newInternalSchemaRegistry()
 	for _, tt := range messageRegistryTestCases {
 		t.Run("", func(t *testing.T) {
 			registry.register(tt.In, tt.Want)
 			meta, _ := registry.get(tt.In)
 			assert.Equal(t, tt.Want.Topic, meta.Topic)
-			assert.Equal(t, tt.Want.SchemaURI, meta.SchemaURI)
+			assert.Equal(t, tt.Want.SchemaName, meta.SchemaName)
 			assert.Equal(t, tt.Want.SchemaVersion, meta.SchemaVersion)
 			assert.Equal(t, tt.Want.Source, meta.Source)
 		})

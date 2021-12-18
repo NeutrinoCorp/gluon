@@ -9,7 +9,6 @@ terraform {
 
 provider "aws" {
   region  = "us-east-1"
-  allowed_account_ids = [ "1234567890" ]
 
   default_tags {
     tags = {
@@ -52,10 +51,10 @@ resource "aws_sqs_queue" "default" {
         "Sid": "__owner_statement",
         "Effect": "Allow",
         "Principal": {
-          "AWS": "arn:aws:iam::${var.aws_account_id}:root"
+          "AWS": "arn:aws:iam::${local.aws_account_id}:root"
         },
         "Action": "SQS:*",
-        "Resource": "arn:aws:sqs:${var.aws_region}:${var.aws_account_id}:${each.key}"
+        "Resource": "arn:aws:sqs:${local.aws_region}:${local.aws_account_id}:${each.key}"
       },
       {
         "Sid": "topic-subscription-${each.value}",
@@ -64,10 +63,10 @@ resource "aws_sqs_queue" "default" {
           "AWS": "*"
         },
         "Action": "SQS:SendMessage",
-        "Resource": "arn:aws:sqs:${var.aws_region}:${var.aws_account_id}:${each.key}",
+        "Resource": "arn:aws:sqs:${local.aws_region}:${local.aws_account_id}:${each.key}",
         "Condition": {
           "ArnLike": {
-            "aws:SourceArn": "arn:aws:sns:${var.aws_region}:${var.aws_account_id}:${each.value}"
+            "aws:SourceArn": "arn:aws:sns:${local.aws_region}:${local.aws_account_id}:${each.value}"
           }
         }
       }

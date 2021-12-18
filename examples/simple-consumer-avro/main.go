@@ -53,7 +53,9 @@ func main() {
 
 func newBus() *gluon.Bus {
 	bus := gluon.NewBus("local",
-		gluon.WithRemoteSchemaRegistry("https://pubsub.neutrino.org/marketplace/schemas"),
+		gluon.WithSchemaRegistry(gluon.LocalSchemaRegistry{
+			BasePath: "./testdata/",
+		}),
 		gluon.WithMajorVersion(2),
 		gluon.WithMarshaler(gluon.NewMarshalerAvro()),
 		gluon.WithDriverConfiguration(
@@ -66,19 +68,19 @@ func newBus() *gluon.Bus {
 func registerSchemas(bus *gluon.Bus) {
 	bus.RegisterSchema(ItemPaid{},
 		gluon.WithTopic("org.neutrino.marketplace.item.paid"),
-		gluon.WithSchemaDefinition("./testdata/item_paid.avsc"),
+		gluon.WithSchemaName("item_paid.avsc"),
 		gluon.WithSource("https://api.neutrino.org/marketplace/items"))
 
 	bus.RegisterSchema(OrderSent{},
 		gluon.WithTopic("org.neutrino.warehouse.order.sent"),
 		gluon.WithSource("https://api.neutrino.org/warehouse/orders"),
-		gluon.WithSchemaDefinition("./testdata/order_sent.avsc"),
+		gluon.WithSchemaName("order_sent.avsc"),
 		gluon.WithSchemaVersion(5))
 
 	bus.RegisterSchema(OrderDelivered{},
 		gluon.WithTopic("org.neutrino.warehouse.order.delivered"),
 		gluon.WithSource("https://api.neutrino.org/warehouse/orders"),
-		gluon.WithSchemaDefinition("./testdata/order_delivered.avsc"))
+		gluon.WithSchemaName("order_delivered.avsc"))
 }
 
 func registerSubscribers(bus *gluon.Bus) {

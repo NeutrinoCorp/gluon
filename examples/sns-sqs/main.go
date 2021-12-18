@@ -58,7 +58,7 @@ func registerEventSchemas(bus *gluon.Bus) {
 	bus.RegisterSchema(ItemPaid{},
 		gluon.WithTopic("ncorp.places.marketplace.prod.2.event.item.paid"),
 		gluon.WithSource("ncorp-places-marketplace-prod"),
-		gluon.WithSchemaDefinition("https://places.neutrinocorp.org/engineering/docs/apis/streams#ItemPaid"))
+		gluon.WithSchemaName("https://places.neutrinocorp.org/engineering/docs/apis/streams#ItemPaid"))
 }
 
 func subscribeToMessages(bus *gluon.Bus) {

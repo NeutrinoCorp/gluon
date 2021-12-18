@@ -6,11 +6,11 @@ import (
 )
 
 type options struct {
-	baseContext             context.Context
-	remoteSchemaRegistryURL string
-	majorVersion            int
-	enableLogging           bool
-	consumerGroup           string
+	baseContext    context.Context
+	schemaRegistry SchemaRegistry
+	majorVersion   int
+	enableLogging  bool
+	consumerGroup  string
 
 	marshaler           Marshaler
 	idFactory           IDFactory
@@ -71,6 +71,21 @@ func WithIDFactory(f IDFactory) Option {
 	}
 }
 
+type schemaRegistryOption struct {
+	SchemaRegistry SchemaRegistry
+}
+
+func (o schemaRegistryOption) apply(opts *options) {
+	opts.schemaRegistry = o.SchemaRegistry
+}
+
+// WithSchemaRegistry Set a schema registry used by specific codecs (e.g. Apache Avro) to decode/encode in-transit messages.
+func WithSchemaRegistry(s SchemaRegistry) Option {
+	return schemaRegistryOption{
+		SchemaRegistry: s,
+	}
+}
+
 type loggerOption struct {
 	logger *log.Logger
 }
@@ -82,17 +97,6 @@ func (o loggerOption) apply(opts *options) {
 // WithLogger Set a global logger to output Bus internal operations.
 func WithLogger(l *log.Logger) Option {
 	return loggerOption{logger: l}
-}
-
-type remoteSchemaRegistryURLOption string
-
-func (o remoteSchemaRegistryURLOption) apply(opts *options) {
-	opts.remoteSchemaRegistryURL = string(o)
-}
-
-// WithRemoteSchemaRegistry Set a global remote schema registry reference (URL).
-func WithRemoteSchemaRegistry(s string) Option {
-	return remoteSchemaRegistryURLOption(s)
 }
 
 type majorVersionOption int

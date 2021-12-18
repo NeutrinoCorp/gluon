@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -17,15 +18,16 @@ type Bus struct {
 	BaseContext         context.Context
 	Marshaler           Marshaler
 	Factories           Factories
+	SchemaRegistry      SchemaRegistry
 	Configuration       BusConfiguration
 	Logger              *log.Logger
 	Addresses           []string
 	consumerMiddleware  []MiddlewareHandlerFunc
 	publisherMiddleware []MiddlewarePublisherFunc
 
-	driver             Driver
-	schemaRegistry     *schemaRegistry
-	subscriberRegistry *subscriberRegistry
+	driver                 Driver
+	internalSchemaRegistry *internalSchemaRegistry
+	subscriberRegistry     *subscriberRegistry
 }
 
 // NewBus Allocate a new Bus with default configurations.
@@ -40,47 +42,51 @@ func NewBus(driver string, opts ...Option) *Bus {
 		Factories: Factories{
 			IDFactory: options.idFactory,
 		},
-		Configuration: BusConfiguration{
-			RemoteSchemaRegistryURI: options.remoteSchemaRegistryURL,
-			MajorVersion:            options.majorVersion,
-			Driver:                  options.driverConfig,
-			ConsumerGroup:           options.consumerGroup,
+		SchemaRegistry: &schemaRegistryCachingMiddleware{
+			next:    options.schemaRegistry,
+			mu:      sync.RWMutex{},
+			records: map[string]string{},
 		},
-		Logger:              options.logger,
-		Addresses:           options.cluster,
-		consumerMiddleware:  options.consumerMiddleware,
-		publisherMiddleware: options.publisherMiddleware,
-		driver:              drivers[driver],
-		schemaRegistry:      newSchemaRegistry(),
-		subscriberRegistry:  newSubscriberRegistry(),
+		Configuration: BusConfiguration{
+			MajorVersion:  options.majorVersion,
+			Driver:        options.driverConfig,
+			ConsumerGroup: options.consumerGroup,
+		},
+		Logger:                 options.logger,
+		Addresses:              options.cluster,
+		consumerMiddleware:     options.consumerMiddleware,
+		publisherMiddleware:    options.publisherMiddleware,
+		driver:                 drivers[driver],
+		internalSchemaRegistry: newInternalSchemaRegistry(),
+		subscriberRegistry:     newSubscriberRegistry(),
 	}
 }
 
 func newBusDefaults() options {
 	return options{
-		baseContext:             context.Background(),
-		remoteSchemaRegistryURL: "",
-		majorVersion:            1,
-		enableLogging:           false,
-		consumerGroup:           "",
-		marshaler:               defaultMarshaler,
-		idFactory:               defaultIDFactory,
-		logger:                  nil,
-		driverConfig:            nil,
-		cluster:                 nil,
+		baseContext:    context.Background(),
+		schemaRegistry: LocalSchemaRegistry{BasePath: "."},
+		majorVersion:   1,
+		enableLogging:  false,
+		consumerGroup:  "",
+		marshaler:      defaultMarshaler,
+		idFactory:      defaultIDFactory,
+		logger:         nil,
+		driverConfig:   nil,
+		cluster:        nil,
 	}
 }
 
 // RegisterSchema Link a message schema to specific metadata (MessageMetadata) and store it for Bus further operations.
 func (b *Bus) RegisterSchema(schema interface{}, opts ...SchemaRegistryOption) {
-	options := schemaRegistryOptions{}
+	options := internalSchemaRegistryOptions{}
 	for _, o := range opts {
 		o.apply(&options)
 	}
-	b.schemaRegistry.register(schema, MessageMetadata{
+	b.internalSchemaRegistry.register(schema, MessageMetadata{
 		Topic:         options.topic,
 		Source:        options.source,
-		SchemaURI:     options.schemaURI,
+		SchemaName:    options.schemaName,
 		SchemaVersion: options.version,
 	})
 }
@@ -114,7 +120,7 @@ func (b *Bus) startSubscriberJobs() error {
 //
 // It will return nil if no schema was found on local schema registry.
 func (b *Bus) Subscribe(schema interface{}) *Subscriber {
-	meta, err := b.schemaRegistry.get(schema)
+	meta, err := b.internalSchemaRegistry.get(schema)
 	if err != nil {
 		return nil
 	}
@@ -139,7 +145,7 @@ func (b *Bus) ListSubscribersFromTopic(t string) []*Subscriber {
 //
 // 	Note: To propagate correlation and causation IDs, use Subscription's context.
 func (b *Bus) Publish(ctx context.Context, data interface{}) error {
-	meta, err := b.schemaRegistry.get(data)
+	meta, err := b.internalSchemaRegistry.get(data)
 	if err != nil {
 		return err
 	}
@@ -154,7 +160,7 @@ func (b *Bus) Publish(ctx context.Context, data interface{}) error {
 //
 // 	Note: To propagate correlation and causation IDs, use Subscription's context.
 func (b *Bus) PublishWithTopic(ctx context.Context, topic string, data interface{}) error {
-	meta := b.schemaRegistry.getByTopic(topic)
+	meta := b.internalSchemaRegistry.getByTopic(topic)
 	msg, err := b.generateTransportMessage(meta, data)
 	if err != nil {
 		return err
@@ -162,11 +168,26 @@ func (b *Bus) PublishWithTopic(ctx context.Context, topic string, data interface
 	return b.publish(ctx, msg)
 }
 
+// PublishWithTopicAndSubject Propagate a message to the ecosystem using the internal topic registry agent to generate the topic.
+//
+// This method also exposes the `Subject` property to define the CloudEvent property with the same name.
+//
+// 	Note: To propagate correlation and causation IDs, use Subscription's context.
+func (b *Bus) PublishWithTopicAndSubject(ctx context.Context, topic, subject string, data interface{}) error {
+	meta := b.internalSchemaRegistry.getByTopic(topic)
+	msg, err := b.generateTransportMessage(meta, data)
+	if err != nil {
+		return err
+	}
+	msg.Subject = subject
+	return b.publish(ctx, msg)
+}
+
 // PublishWithSubject Propagate a message to the ecosystem using the internal topic registry agent to generate the topic.
 //
 // This method also exposes the `Subject` property to define the CloudEvent property with the same name.
 func (b *Bus) PublishWithSubject(ctx context.Context, data interface{}, subject string) error {
-	meta, err := b.schemaRegistry.get(data)
+	meta, err := b.internalSchemaRegistry.get(data)
 	if err != nil {
 		return err
 	}
@@ -214,10 +235,7 @@ func (b *Bus) generateTransportMessage(meta *MessageMetadata, data interface{}) 
 }
 
 func (b *Bus) getDataSchema(meta *MessageMetadata) string {
-	if meta.SchemaURI != "" {
-		return meta.SchemaURI
-	}
-	return b.Configuration.RemoteSchemaRegistryURI
+	return b.SchemaRegistry.GetBaseLocation() + meta.SchemaName
 }
 
 func (b *Bus) getSchemaVersion(meta MessageMetadata) int {
@@ -260,12 +278,12 @@ func (b *Bus) injectMessageContext(ctx context.Context, msg *TransportMessage) {
 
 // GetSchemaMetadata retrieves metadata from the internal schema registry
 func (b *Bus) GetSchemaMetadata(schema interface{}) (*MessageMetadata, error) {
-	return b.schemaRegistry.get(schema)
+	return b.internalSchemaRegistry.get(schema)
 }
 
 // GetSchemaMetadataFromTopic retrieves metadata from the internal schema registry using the topic name
 func (b *Bus) GetSchemaMetadataFromTopic(topic string) *MessageMetadata {
-	return b.schemaRegistry.getByTopic(topic)
+	return b.internalSchemaRegistry.getByTopic(topic)
 }
 
 // Shutdown Close a Bus and its internal resources gracefully.

@@ -53,7 +53,6 @@ func main() {
 
 func newBus() *gluon.Bus {
 	bus := gluon.NewBus("local",
-		gluon.WithRemoteSchemaRegistry("https://pubsub.neutrino.org/marketplace/schemas"),
 		gluon.WithMajorVersion(2),
 		gluon.WithDriverConfiguration(
 			glocal.Configuration{
@@ -70,13 +69,13 @@ func registerSchemas(bus *gluon.Bus) {
 	bus.RegisterSchema(OrderSent{},
 		gluon.WithTopic("org.neutrino.warehouse.order.sent"),
 		gluon.WithSource("https://api.neutrino.org/warehouse/orders"),
-		gluon.WithSchemaDefinition("https://pubsub.neutrino.org/warehouse/schemas"),
+		gluon.WithSchemaName("https://pubsub.neutrino.org/warehouse/schemas"),
 		gluon.WithSchemaVersion(5))
 
 	bus.RegisterSchema(OrderDelivered{},
 		gluon.WithTopic("org.neutrino.warehouse.order.delivered"),
 		gluon.WithSource("https://api.neutrino.org/warehouse/orders"),
-		gluon.WithSchemaDefinition("https://pubsub.neutrino.org/warehouse/schemas"))
+		gluon.WithSchemaName("https://pubsub.neutrino.org/warehouse/schemas"))
 }
 
 func registerSubscribers(bus *gluon.Bus) {
