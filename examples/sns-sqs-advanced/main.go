@@ -62,7 +62,6 @@ func newBus() *gluon.Bus {
 	logger := log.New(os.Stdout, "", 0)
 	cfg, _ := config.LoadDefaultConfig(context.TODO())
 	bus := gluon.NewBus("aws_sns_sqs",
-		gluon.WithRemoteSchemaRegistry("https://pubsub.neutrino.org/marketplace/schemas"),
 		gluon.WithMajorVersion(2),
 		gluon.WithLogger(logger),
 		gluon.WithPublisherMiddleware(logProducerMiddleware),
@@ -84,13 +83,13 @@ func registerSchemas(bus *gluon.Bus) {
 	bus.RegisterSchema(OrderSent{},
 		gluon.WithTopic("ncorp.places.warehouse.prod.1.event.package.sent"),
 		gluon.WithSource("https://api.neutrino.org/warehouse/packages"),
-		gluon.WithSchemaDefinition("https://pubsub.neutrino.org/warehouse/schemas"),
+		gluon.WithSchemaName("https://pubsub.neutrino.org/warehouse/schemas"),
 		gluon.WithSchemaVersion(1))
 
 	bus.RegisterSchema(OrderDelivered{},
 		gluon.WithTopic("ncorp.places.transports.prod.1.event.package.delivered"),
 		gluon.WithSource("https://api.neutrino.org/transport/orders"),
-		gluon.WithSchemaDefinition("https://pubsub.neutrino.org/transport/schemas"))
+		gluon.WithSchemaName("https://pubsub.neutrino.org/transport/schemas"))
 }
 
 func registerSubscribers(bus *gluon.Bus) {

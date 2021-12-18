@@ -1,20 +1,20 @@
 package gluon
 
-type schemaRegistryOptions struct {
-	topic     string
-	source    string
-	schemaURI string
-	version   int
+type internalSchemaRegistryOptions struct {
+	topic      string
+	source     string
+	schemaName string
+	version    int
 }
 
 // SchemaRegistryOption set a specific configuration for internal schema registry.
 type SchemaRegistryOption interface {
-	apply(registryOptions *schemaRegistryOptions)
+	apply(registryOptions *internalSchemaRegistryOptions)
 }
 
 type schemaTopicOption string
 
-func (o schemaTopicOption) apply(opts *schemaRegistryOptions) {
+func (o schemaTopicOption) apply(opts *internalSchemaRegistryOptions) {
 	opts.topic = string(o)
 }
 
@@ -25,7 +25,7 @@ func WithTopic(s string) SchemaRegistryOption {
 
 type schemaSourceOption string
 
-func (o schemaSourceOption) apply(opts *schemaRegistryOptions) {
+func (o schemaSourceOption) apply(opts *internalSchemaRegistryOptions) {
 	opts.source = string(o)
 }
 
@@ -34,20 +34,20 @@ func WithSource(s string) SchemaRegistryOption {
 	return schemaSourceOption(s)
 }
 
-type schemaURIOption string
+type schemaNameOption string
 
-func (o schemaURIOption) apply(opts *schemaRegistryOptions) {
-	opts.schemaURI = string(o)
+func (o schemaNameOption) apply(opts *internalSchemaRegistryOptions) {
+	opts.schemaName = string(o)
 }
 
-// WithSchemaDefinition Set a schema definition from a file path or URL.
-func WithSchemaDefinition(s string) SchemaRegistryOption {
-	return schemaURIOption(s)
+// WithSchemaName Set the name of the schema stored on the SchemaRegistry.
+func WithSchemaName(s string) SchemaRegistryOption {
+	return schemaNameOption(s)
 }
 
 type schemaVersionOption int
 
-func (o schemaVersionOption) apply(opts *schemaRegistryOptions) {
+func (o schemaVersionOption) apply(opts *internalSchemaRegistryOptions) {
 	opts.version = int(o)
 }
 

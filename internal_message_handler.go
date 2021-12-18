@@ -10,7 +10,7 @@ type InternalMessageHandler func(ctx context.Context, subscriber *Subscriber, me
 
 func getInternalHandler(b *Bus) InternalMessageHandler {
 	return func(ctx context.Context, sub *Subscriber, msg *TransportMessage) error {
-		msgMeta := b.schemaRegistry.getByTopic(sub.key)
+		msgMeta := b.internalSchemaRegistry.getByTopic(sub.key)
 		data := reflect.New(msgMeta.schemaInternalType)
 		err := b.Marshaler.Unmarshal(msg.Data, data.Interface())
 		logInternalConsumerError(b, err)

@@ -61,7 +61,6 @@ func newBus() *gluon.Bus {
 	logger := log.New(os.Stdout, "", 0)
 	bus := gluon.NewBus("kafka",
 		gluon.WithCluster("localhost:9092", "localhost:9093", "localhost:9094"),
-		gluon.WithRemoteSchemaRegistry("https://pubsub.neutrino.org/marketplace/schemas"),
 		gluon.WithMajorVersion(2),
 		gluon.WithLogger(logger),
 		gluon.WithPublisherMiddleware(logProducerMiddleware),
@@ -77,13 +76,13 @@ func registerSchemas(bus *gluon.Bus) {
 	bus.RegisterSchema(OrderSent{},
 		gluon.WithTopic("org.neutrino.warehouse.order.sent"),
 		gluon.WithSource("https://api.neutrino.org/warehouse/orders"),
-		gluon.WithSchemaDefinition("https://pubsub.neutrino.org/warehouse/schemas"),
+		gluon.WithSchemaName("https://pubsub.neutrino.org/warehouse/schemas"),
 		gluon.WithSchemaVersion(5))
 
 	bus.RegisterSchema(OrderDelivered{},
 		gluon.WithTopic("org.neutrino.warehouse.order.delivered"),
 		gluon.WithSource("https://api.neutrino.org/warehouse/orders"),
-		gluon.WithSchemaDefinition("https://pubsub.neutrino.org/warehouse/schemas"))
+		gluon.WithSchemaName("https://pubsub.neutrino.org/warehouse/schemas"))
 }
 
 func registerSubscribers(bus *gluon.Bus) {

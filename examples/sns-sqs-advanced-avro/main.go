@@ -8,6 +8,8 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/service/glue"
+
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/google/uuid"
 	"github.com/neutrinocorp/gluon"
@@ -63,7 +65,11 @@ func newBus() *gluon.Bus {
 	logger := log.New(os.Stdout, "", 0)
 	cfg, _ := config.LoadDefaultConfig(context.TODO())
 	bus := gluon.NewBus("aws_sns_sqs",
-		gluon.WithRemoteSchemaRegistry("https://pubsub.neutrino.org/marketplace/schemas"),
+		gluon.WithSchemaRegistry(gaws.GlueSchemaRegistry{
+			Client:           glue.NewFromConfig(cfg),
+			RegistryName:     "sample",
+			UseLatestVersion: true,
+		}),
 		gluon.WithMajorVersion(2),
 		gluon.WithLogger(logger),
 		gluon.WithPublisherMiddleware(logProducerMiddleware),
@@ -71,8 +77,9 @@ func newBus() *gluon.Bus {
 		gluon.WithMarshaler(gluon.NewMarshalerAvro()),
 		gluon.WithConsumerGroup("ncorp-places-marketplace-prod-1"),
 		gluon.WithDriverConfiguration(gaws.SnsSqsConfig{
-			AwsConfig: cfg,
-			AccountID: "1234567890",
+			AwsConfig:            cfg,
+			AccountID:            "1234567890",
+			FailedPollingBackoff: time.Second * 5,
 		}))
 	return bus
 }
@@ -80,19 +87,19 @@ func newBus() *gluon.Bus {
 func registerSchemas(bus *gluon.Bus) {
 	bus.RegisterSchema(ItemPaid{},
 		gluon.WithTopic("ncorp.places.marketplace.prod.2.event.item.paid"),
-		gluon.WithSchemaDefinition("./testdata/item_paid.avsc"),
+		gluon.WithSchemaName("item_paid"),
 		gluon.WithSource("https://api.neutrino.org/marketplace/items"))
 
 	bus.RegisterSchema(OrderSent{},
 		gluon.WithTopic("ncorp.places.warehouse.prod.1.event.package.sent"),
 		gluon.WithSource("https://api.neutrino.org/warehouse/orders"),
-		gluon.WithSchemaDefinition("./testdata/order_sent.avsc"),
+		gluon.WithSchemaName("order_sent"),
 		gluon.WithSchemaVersion(5))
 
 	bus.RegisterSchema(OrderDelivered{},
 		gluon.WithTopic("ncorp.places.warehouse.prod.1.event.package.delivered"),
 		gluon.WithSource("https://api.neutrino.org/warehouse/orders"),
-		gluon.WithSchemaDefinition("./testdata/order_delivered.avsc"))
+		gluon.WithSchemaName("order_delivered"))
 }
 
 func registerSubscribers(bus *gluon.Bus) {
