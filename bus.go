@@ -156,7 +156,7 @@ func (b *Bus) Publish(ctx context.Context, data interface{}) error {
 	return b.publish(ctx, msg)
 }
 
-// PublishWithTopic Propagate a message to the ecosystem using the internal topic registry agent to generate the topic.
+// PublishWithTopic Propagate a message to the ecosystem using the internal schema registry to get the topic.
 //
 // 	Note: To propagate correlation and causation IDs, use Subscription's context.
 func (b *Bus) PublishWithTopic(ctx context.Context, topic string, data interface{}) error {
@@ -165,6 +165,38 @@ func (b *Bus) PublishWithTopic(ctx context.Context, topic string, data interface
 	if err != nil {
 		return err
 	}
+	return b.publish(ctx, msg)
+}
+
+// PublishWithType Propagate a message to the ecosystem using the internal schema registry Go's struct type.
+//
+// 	Note: To propagate correlation and causation IDs, use Subscription's context.
+func (b *Bus) PublishWithType(ctx context.Context, msgType string, data interface{}) error {
+	meta, err := b.internalSchemaRegistry.getByKey(msgType)
+	if err != nil {
+		return err
+	}
+	msg, err := b.generateTransportMessage(meta, data)
+	if err != nil {
+		return err
+	}
+	return b.publish(ctx, msg)
+}
+
+// PublishWithTypeAndSubject Propagate a message to the ecosystem using the internal schema registry Go's struct type
+// and the subject.
+//
+// 	Note: To propagate correlation and causation IDs, use Subscription's context.
+func (b *Bus) PublishWithTypeAndSubject(ctx context.Context, msgType, subject string, data interface{}) error {
+	meta, err := b.internalSchemaRegistry.getByKey(msgType)
+	if err != nil {
+		return err
+	}
+	msg, err := b.generateTransportMessage(meta, data)
+	if err != nil {
+		return err
+	}
+	msg.Subject = subject
 	return b.publish(ctx, msg)
 }
 

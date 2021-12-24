@@ -67,6 +67,15 @@ func (r *internalSchemaRegistry) get(schema interface{}) (*MessageMetadata, erro
 	return nil, ErrMessageNotRegistered
 }
 
+func (r *internalSchemaRegistry) getByKey(k string) (*MessageMetadata, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if meta, ok := r.registry[k]; ok {
+		return meta, nil
+	}
+	return nil, ErrMessageNotRegistered
+}
+
 func (r *internalSchemaRegistry) getByTopic(t string) *MessageMetadata {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

@@ -97,7 +97,7 @@ func registerSubscribers(bus *gluon.Bus) {
 			event.SentAt.Format(time.RFC3339))
 		log.Printf("[WAREHOUSE_SERVICE] | Message metadata: id: %s, correlation: %s, causation: %s",
 			message.GetMessageID(), message.GetCorrelationID(), message.GetCausationID())
-		return bus.Publish(ctx, OrderDelivered{
+		return bus.PublishWithType(ctx, "main.OrderDelivered", OrderDelivered{
 			OrderID:     uuid.NewString(),
 			DeliveredAt: time.Now().UTC(),
 		})
