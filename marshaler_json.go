@@ -8,18 +8,14 @@ type MarshalerJSON struct{}
 
 var _ Marshaler = MarshalerJSON{}
 
-func (m MarshalerJSON) SetParentBus(b *Bus) {
-	return
-}
-
 func (m MarshalerJSON) GetContentType() string {
 	return "application/json"
 }
 
-func (m MarshalerJSON) Marshal(v interface{}) ([]byte, error) {
+func (m MarshalerJSON) Marshal(_ string, v interface{}) ([]byte, error) {
 	return json.Marshal(v)
 }
 
-func (m MarshalerJSON) Unmarshal(data []byte, v interface{}) error {
+func (m MarshalerJSON) Unmarshal(_ string, data []byte, v interface{}) error {
 	return json.Unmarshal(data, v)
 }

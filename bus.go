@@ -36,17 +36,21 @@ func NewBus(driver string, opts ...Option) *Bus {
 	for _, o := range opts {
 		o.apply(&options)
 	}
+	var schemaRegistry SchemaRegistry
+	if options.schemaRegistry != nil {
+		schemaRegistry = &schemaRegistryCachingMiddleware{
+			next:    options.schemaRegistry,
+			mu:      sync.RWMutex{},
+			records: map[string]string{},
+		}
+	}
 	return &Bus{
 		BaseContext: options.baseContext,
 		Marshaler:   options.marshaler,
 		Factories: Factories{
 			IDFactory: options.idFactory,
 		},
-		SchemaRegistry: &schemaRegistryCachingMiddleware{
-			next:    options.schemaRegistry,
-			mu:      sync.RWMutex{},
-			records: map[string]string{},
-		},
+		SchemaRegistry: schemaRegistry,
 		Configuration: BusConfiguration{
 			MajorVersion:  options.majorVersion,
 			Driver:        options.driverConfig,
@@ -65,7 +69,7 @@ func NewBus(driver string, opts ...Option) *Bus {
 func newBusDefaults() options {
 	return options{
 		baseContext:    context.Background(),
-		schemaRegistry: LocalSchemaRegistry{BasePath: "."},
+		schemaRegistry: nil,
 		majorVersion:   1,
 		enableLogging:  false,
 		consumerGroup:  "",
@@ -94,7 +98,6 @@ func (b *Bus) RegisterSchema(schema interface{}, opts ...SchemaRegistryOption) {
 // ListenAndServe Bootstrap and start a Bus along its internal components (subscribers).
 func (b *Bus) ListenAndServe() error {
 	b.driver.SetParentBus(b)
-	b.Marshaler.SetParentBus(b)
 	b.driver.SetInternalHandler(getInternalHandler(b))
 	if err := b.driver.Start(b.BaseContext); err != nil {
 		return err
@@ -248,7 +251,15 @@ func (b *Bus) generateTransportMessage(meta *MessageMetadata, data interface{}) 
 		return nil, err
 	}
 
-	encodedMsg, err := b.Marshaler.Marshal(data)
+	var schemaDef string
+	if b.SchemaRegistry != nil {
+		schemaDef, err = b.SchemaRegistry.GetSchemaDefinition(meta.SchemaName, meta.SchemaVersion)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	encodedMsg, err := b.Marshaler.Marshal(schemaDef, data)
 	if err != nil {
 		return nil, err
 	}
@@ -267,6 +278,9 @@ func (b *Bus) generateTransportMessage(meta *MessageMetadata, data interface{}) 
 }
 
 func (b *Bus) getDataSchema(meta *MessageMetadata) string {
+	if b.SchemaRegistry == nil {
+		return ""
+	}
 	return b.SchemaRegistry.GetBaseLocation() + meta.SchemaName
 }
 

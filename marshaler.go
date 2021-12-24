@@ -7,10 +7,9 @@ package gluon
 //
 // The default Marshaler is MarshalerJSON.
 type Marshaler interface {
-	SetParentBus(b *Bus)
 	GetContentType() string
-	Marshal(v interface{}) ([]byte, error)
-	Unmarshal(data []byte, v interface{}) error
+	Marshal(schemaDef string, v interface{}) ([]byte, error)
+	Unmarshal(schemaDef string, data []byte, v interface{}) error
 }
 
 var defaultMarshaler Marshaler = MarshalerJSON{}

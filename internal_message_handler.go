@@ -12,7 +12,15 @@ func getInternalHandler(b *Bus) InternalMessageHandler {
 	return func(ctx context.Context, sub *Subscriber, msg *TransportMessage) error {
 		msgMeta := b.internalSchemaRegistry.getByTopic(sub.key)
 		data := reflect.New(msgMeta.schemaInternalType)
-		err := b.Marshaler.Unmarshal(msg.Data, data.Interface())
+		var schemaDef string
+		var err error
+		if b.SchemaRegistry != nil {
+			schemaDef, err = b.SchemaRegistry.GetSchemaDefinition(msgMeta.SchemaName, msgMeta.SchemaVersion)
+			if err != nil {
+				return err
+			}
+		}
+		err = b.Marshaler.Unmarshal(schemaDef, msg.Data, data.Interface())
 		logInternalConsumerError(b, err)
 		if err != nil && b.isLoggerEnabled() {
 			return err
