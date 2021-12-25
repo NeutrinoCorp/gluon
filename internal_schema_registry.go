@@ -19,7 +19,7 @@ type MessageMetadata struct {
 	SchemaName    string
 	SchemaVersion int
 
-	schemaInternalType reflect.Type
+	SchemaInternalType reflect.Type
 }
 
 // internalSchemaRegistry Is a concurrent-safe internal database which relations message concrete types to useful metadata.
@@ -50,7 +50,7 @@ func (r *internalSchemaRegistry) register(schema interface{}, meta MessageMetada
 	if _, ok := r.registry[schemaType.String()]; ok {
 		return
 	}
-	meta.schemaInternalType = schemaType
+	meta.SchemaInternalType = schemaType
 	r.registry[schemaType.String()] = &meta
 }
 
