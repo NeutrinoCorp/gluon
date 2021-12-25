@@ -8,6 +8,11 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+
+	"github.com/aws/aws-sdk-go-v2/service/sns"
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
+
 	"github.com/aws/aws-sdk-go-v2/service/glue"
 
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -62,6 +67,10 @@ func main() {
 }
 
 func newBus() *gluon.Bus {
+	// use Localstack
+	awsEndpoint := "http://localhost:4566"
+	awsRegion := "us-east-1"
+
 	logger := log.New(os.Stdout, "", 0)
 	cfg, _ := config.LoadDefaultConfig(context.TODO())
 	bus := gluon.NewBus("aws_sns_sqs",
@@ -77,8 +86,27 @@ func newBus() *gluon.Bus {
 		gluon.WithMarshaler(gluon.NewMarshalerAvro()),
 		gluon.WithConsumerGroup("ncorp-places-marketplace-prod-1"),
 		gluon.WithDriverConfiguration(gaws.SnsSqsConfig{
-			AwsConfig:            cfg,
-			AccountID:            "1234567890",
+			AwsConfig: cfg,
+			SnsClient: sns.NewFromConfig(cfg, func(options *sns.Options) {
+				options.EndpointResolver = sns.EndpointResolverFunc(func(region string, options sns.EndpointResolverOptions) (aws.Endpoint, error) {
+					return aws.Endpoint{
+						PartitionID:   "aws",
+						URL:           awsEndpoint,
+						SigningRegion: awsRegion,
+					}, nil
+				})
+			}),
+			SqsClient: sqs.NewFromConfig(cfg, func(options *sqs.Options) {
+				options.EndpointResolver = sqs.EndpointResolverFunc(func(region string, options sqs.EndpointResolverOptions) (aws.Endpoint, error) {
+					return aws.Endpoint{
+						PartitionID:   "aws",
+						URL:           awsEndpoint,
+						SigningRegion: awsRegion,
+					}, nil
+				})
+			}),
+			CustomSqsEndpoint:    awsEndpoint,
+			AccountID:            "000000000000",
 			FailedPollingBackoff: time.Second * 5,
 		}))
 	return bus

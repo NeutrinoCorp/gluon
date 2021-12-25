@@ -22,7 +22,9 @@ func generateSnsTopicArn(cfg SnsSqsConfig, topic string) string {
 }
 
 func generateSqsQueueUrl(cfg SnsSqsConfig, group string) string {
-	if cfg.AwsConfig.Region == "" || cfg.AccountID == "" || group == "" {
+	if cfg.CustomSqsEndpoint != "" {
+		return cfg.CustomSqsEndpoint + "/" + cfg.AccountID + "/" + strings.ReplaceAll(group, ".", "-")
+	} else if cfg.AwsConfig.Region == "" || cfg.AccountID == "" || group == "" {
 		return ""
 	}
 

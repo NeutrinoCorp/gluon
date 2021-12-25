@@ -7,6 +7,9 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/service/sns"
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
+
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/google/uuid"
 	"github.com/neutrinocorp/gluon"
@@ -37,6 +40,9 @@ func main() {
 		gluon.WithDriverConfiguration(gaws.SnsSqsConfig{
 			AwsConfig:                 cfg,
 			AccountID:                 "1234567890",
+			SnsClient:                 sns.NewFromConfig(cfg),
+			SqsClient:                 sqs.NewFromConfig(cfg),
+			CustomSqsEndpoint:         "",
 			MaxNumberOfMessagesPolled: 0,
 			VisibilityTimeout:         0,
 			WaitTimeSeconds:           0,

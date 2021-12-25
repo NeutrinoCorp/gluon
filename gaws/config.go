@@ -4,6 +4,8 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/sns"
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
 )
 
 const (
@@ -17,6 +19,9 @@ const (
 type SnsSqsConfig struct {
 	AwsConfig                 aws.Config
 	AccountID                 string
+	SnsClient                 *sns.Client
+	SqsClient                 *sqs.Client
+	CustomSqsEndpoint         string
 	MaxNumberOfMessagesPolled int32
 	VisibilityTimeout         int32
 	WaitTimeSeconds           int32

@@ -43,8 +43,8 @@ func (d *snsSqsDriver) SetParentBus(b *gluon.Bus) {
 	d.parentBus = b
 	if cfg, ok := b.Configuration.Driver.(SnsSqsConfig); ok {
 		d.config = cfg
-		d.snsClient = sns.NewFromConfig(cfg.AwsConfig)
-		d.sqsClient = sqs.NewFromConfig(cfg.AwsConfig)
+		d.snsClient = cfg.SnsClient
+		d.sqsClient = cfg.SqsClient
 
 	}
 }
@@ -53,7 +53,7 @@ func (d *snsSqsDriver) SetInternalHandler(h gluon.InternalMessageHandler) {
 	d.messageHandler = h
 }
 
-func (d *snsSqsDriver) Start(ctx context.Context) error {
+func (d *snsSqsDriver) Start(_ context.Context) error {
 	return nil
 }
 

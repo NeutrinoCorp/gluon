@@ -3,6 +3,7 @@ package gaws
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -42,7 +43,8 @@ func (s *snsSqsSubscriptionWorker) start(ctx context.Context, sub *gluon.Subscri
 			pollRetries := s.parentDriver.config.GetMaxBatchPollingRetries()
 			willCountFail := pollRetries > 0 && failedPollingCount+1 >= pollRetries
 			if err != nil && willCountFail {
-				s.logError(errors.New("gluon: Failed to fetch from queue, stopping polling"))
+				s.logError(errors.New(fmt.Sprintf("gluon: Failed to fetch from queue (%s), stopping polling",
+					queueUrl)))
 				break
 			} else if err != nil {
 				failedPollingCount++
