@@ -39,8 +39,12 @@ func (s *snsSqsSubscriptionWorker) start(ctx context.Context, sub *gluon.Subscri
 				VisibilityTimeout:       s.parentDriver.config.GetVisibilityTimeout(),
 				WaitTimeSeconds:         s.parentDriver.config.GetWaitTimeSeconds(),
 			})
-			s.logError(gluon.NewError("SqsFailedPolling",
-				fmt.Sprintf("Failed to fetch from queue (%s)", queueUrl), err))
+			if err != nil {
+				// wrap AWS error with gluon as AWS errors don't give enough information
+				err = gluon.NewError("SqsFailedPolling",
+					fmt.Sprintf("Failed to fetch from queue (%s)", queueUrl), err)
+			}
+			s.logError(err)
 			pollRetries := s.parentDriver.config.GetMaxBatchPollingRetries()
 			willCountFail := pollRetries > 0 && failedPollingCount+1 >= pollRetries
 			if err != nil && willCountFail {
@@ -117,16 +121,22 @@ func (s *snsSqsSubscriptionWorker) execMessageHandler(snsMessage types.Message, 
 	// For more information, look here:
 	// https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-visibility-timeout.html#inflight-messages
 	scopedCtx := context.Background()
-	queueUrl := aws.String(generateSqsQueueUrl(s.parentDriver.config, s.getDefaultConsumerGroup(sub)))
+	queueUrl := generateSqsQueueUrl(s.parentDriver.config, s.getDefaultConsumerGroup(sub))
 	err := s.parentDriver.messageHandler(scopedCtx, sub, msg)
-	s.logError(err)
 	if err != nil {
+		err = gluon.NewError("SqsHandlerFailed",
+			fmt.Sprintf("Failed to handle the message from queue (%s)", queueUrl), err)
+		s.logError(err)
 		return
 	}
 
 	_, err = s.parentDriver.sqsClient.DeleteMessage(scopedCtx, &sqs.DeleteMessageInput{
-		QueueUrl:      queueUrl,
+		QueueUrl:      aws.String(queueUrl),
 		ReceiptHandle: snsMessage.ReceiptHandle,
 	})
+	if err != nil {
+		err = gluon.NewError("SqsFailedToAcknowledge",
+			fmt.Sprintf("Failed to remove message from queue for ACK (%s)", queueUrl), err)
+	}
 	s.logError(err)
 }

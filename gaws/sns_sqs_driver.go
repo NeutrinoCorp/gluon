@@ -74,6 +74,10 @@ func (d *snsSqsDriver) Subscribe(ctx context.Context, subscriber *gluon.Subscrib
 
 func (d *snsSqsDriver) Publish(ctx context.Context, message *gluon.TransportMessage) (err error) {
 	defer func() {
+		if err != nil {
+			err = gluon.NewError("SnsFailedPublishing",
+				fmt.Sprintf("Failed to publish to topic (%s)", message.Topic), err)
+		}
 		d.logError(err)
 	}()
 	var snsMsg *string
@@ -85,8 +89,6 @@ func (d *snsSqsDriver) Publish(ctx context.Context, message *gluon.TransportMess
 		Message:  snsMsg,
 		TopicArn: aws.String(generateSnsTopicArn(d.config, message.Topic)),
 	})
-	err = gluon.NewError("SnsFailedPublishing",
-		fmt.Sprintf("Failed to publish to topic (%s)", message.Topic), err)
 	return
 }
 

@@ -17,7 +17,7 @@ func NewError(kind, description string, parent error) Error {
 }
 
 func (e Error) Error() string {
-	return e.Description() + ", " + e.parentErr.Error()
+	return e.Description()
 }
 
 func (e Error) Kind() string {
