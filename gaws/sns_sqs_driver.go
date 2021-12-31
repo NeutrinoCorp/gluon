@@ -2,6 +2,7 @@ package gaws
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -71,8 +72,12 @@ func (d *snsSqsDriver) Subscribe(ctx context.Context, subscriber *gluon.Subscrib
 	return w.start(ctx, subscriber)
 }
 
-func (d *snsSqsDriver) Publish(ctx context.Context, message *gluon.TransportMessage) error {
-	snsMsg, err := marshalSnsMessage(message)
+func (d *snsSqsDriver) Publish(ctx context.Context, message *gluon.TransportMessage) (err error) {
+	defer func() {
+		d.logError(err)
+	}()
+	var snsMsg *string
+	snsMsg, err = marshalSnsMessage(message)
 	if err != nil {
 		return err
 	}
@@ -80,9 +85,28 @@ func (d *snsSqsDriver) Publish(ctx context.Context, message *gluon.TransportMess
 		Message:  snsMsg,
 		TopicArn: aws.String(generateSnsTopicArn(d.config, message.Topic)),
 	})
-	return err
+	err = gluon.NewError("SnsFailedPublishing",
+		fmt.Sprintf("Failed to publish to topic (%s)", message.Topic), err)
+	return
+}
+
+func (d *snsSqsDriver) logError(err error) {
+	if err == nil {
+		return
+	}
+
+	if d.isLoggingEnabled() {
+		if errG, ok := err.(gluon.Error); ok {
+			d.parentBus.Logger.Error().
+				Str("error_type", errG.Kind()).
+				Str("error_parent", errG.Parent().Error()).
+				Msg(errG.Description())
+			return
+		}
+		d.parentBus.Logger.Error().Msg(err.Error())
+	}
 }
 
 func (d *snsSqsDriver) isLoggingEnabled() bool {
-	return d.parentBus.Logger != nil
+	return true
 }

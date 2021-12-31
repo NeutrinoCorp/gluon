@@ -81,5 +81,5 @@ func (d *driver) Subscribe(ctx context.Context, subscriber *gluon.Subscriber) er
 }
 
 func (d *driver) isLoggingEnabled() bool {
-	return d.parentBus.Logger != nil
+	return true
 }

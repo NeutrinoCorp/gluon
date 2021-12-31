@@ -7,6 +7,8 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/rs/zerolog"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 
 	"github.com/aws/aws-sdk-go-v2/service/sns"
@@ -67,7 +69,7 @@ func newBus() *gluon.Bus {
 	awsEndpoint := "http://localhost:4566"
 	awsRegion := "us-east-1"
 
-	logger := log.New(os.Stdout, "", 0)
+	logger := zerolog.New(os.Stderr).With().Timestamp().Logger()
 	cfg, _ := config.LoadDefaultConfig(context.TODO())
 	bus := gluon.NewBus("aws_sns_sqs",
 		gluon.WithMajorVersion(2),

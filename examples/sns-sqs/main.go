@@ -2,18 +2,18 @@ package main
 
 import (
 	"context"
-	"log"
 	"os"
 	"os/signal"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sns"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
-
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/google/uuid"
 	"github.com/neutrinocorp/gluon"
 	"github.com/neutrinocorp/gluon/gaws"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 type ItemPaid struct {
@@ -32,14 +32,14 @@ func logMiddleware(next gluon.HandlerFunc) gluon.HandlerFunc {
 }
 
 func main() {
-	logger := log.New(os.Stdout, "", 0)
+	logger := zerolog.New(os.Stderr).With().Timestamp().Logger()
 	cfg, _ := config.LoadDefaultConfig(context.TODO())
 	bus := gluon.NewBus("aws_sns_sqs",
 		gluon.WithLogger(logger),
 		gluon.WithConsumerMiddleware(logMiddleware),
 		gluon.WithDriverConfiguration(gaws.SnsSqsConfig{
 			AwsConfig:                 cfg,
-			AccountID:                 "1234567890",
+			AccountID:                 "228850758643",
 			SnsClient:                 sns.NewFromConfig(cfg),
 			SqsClient:                 sqs.NewFromConfig(cfg),
 			CustomSqsEndpoint:         "",
@@ -53,7 +53,7 @@ func main() {
 	subscribeToMessages(bus)
 	go func() {
 		if err := bus.ListenAndServe(); err != nil && err != gluon.ErrBusClosed {
-			log.Fatal(err)
+			log.Fatal().Msg(err.Error())
 		}
 	}()
 	go publishMessage(bus)
@@ -69,7 +69,7 @@ func registerEventSchemas(bus *gluon.Bus) {
 
 func subscribeToMessages(bus *gluon.Bus) {
 	bus.Subscribe(ItemPaid{}).
-		Group("ncorp.wallet.core.prod.2.add_transaction.on.item_pai").
+		Group("ncorp.wallet.core.prod.2.add_transaction.on.item_paid").
 		HandlerFunc(func(ctx context.Context, msg *gluon.Message) error {
 			log.Print(msg.Data)
 			return nil
@@ -87,7 +87,7 @@ func publishMessage(bus *gluon.Bus) {
 		PaidAt:   time.Now().UTC(),
 	}, itemId)
 	if err != nil {
-		log.Print(err)
+		log.Error().Msg(err.Error())
 	}
 }
 
@@ -101,6 +101,6 @@ func gracefulShutdown(bus *gluon.Bus) {
 	defer cancel()
 
 	if err := bus.Shutdown(ctx); err != nil {
-		log.Fatal(err)
+		log.Fatal().Msg(err.Error())
 	}
 }

@@ -2,7 +2,8 @@ package gluon
 
 import (
 	"context"
-	"log"
+
+	"github.com/rs/zerolog"
 )
 
 type options struct {
@@ -14,7 +15,7 @@ type options struct {
 
 	marshaler           Marshaler
 	idFactory           IDFactory
-	logger              *log.Logger
+	logger              zerolog.Logger
 	driverConfig        interface{}
 	cluster             []string
 	consumerMiddleware  []MiddlewareHandlerFunc
@@ -87,7 +88,7 @@ func WithSchemaRegistry(s SchemaRegistry) Option {
 }
 
 type loggerOption struct {
-	logger *log.Logger
+	logger zerolog.Logger
 }
 
 func (o loggerOption) apply(opts *options) {
@@ -95,7 +96,7 @@ func (o loggerOption) apply(opts *options) {
 }
 
 // WithLogger Set a global logger to output Bus internal operations.
-func WithLogger(l *log.Logger) Option {
+func WithLogger(l zerolog.Logger) Option {
 	return loggerOption{logger: l}
 }
 

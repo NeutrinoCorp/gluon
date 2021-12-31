@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"os"
 	"os/signal"
 	"time"
@@ -10,6 +9,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/neutrinocorp/gluon"
 	_ "github.com/neutrinocorp/gluon/gkafka"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 type ItemPaid struct {
@@ -50,7 +51,7 @@ func main() {
 	registerSubscribers(bus)
 	go func() {
 		if err := bus.ListenAndServe(); err != nil && err != gluon.ErrBusClosed {
-			log.Fatal(err)
+			log.Fatal().Err(err)
 		}
 	}()
 	go publishMessage(bus)
@@ -58,7 +59,7 @@ func main() {
 }
 
 func newBus() *gluon.Bus {
-	logger := log.New(os.Stdout, "", 0)
+	logger := zerolog.New(os.Stderr).With().Timestamp().Logger()
 	bus := gluon.NewBus("kafka",
 		gluon.WithCluster("localhost:9092", "localhost:9093", "localhost:9094"),
 		gluon.WithSchemaRegistry(gluon.LocalSchemaRegistry{
@@ -161,6 +162,6 @@ func gracefulShutdown(bus *gluon.Bus) {
 	defer cancel()
 
 	if err := bus.Shutdown(ctx); err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err)
 	}
 }

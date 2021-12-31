@@ -3,11 +3,13 @@ package gluon
 import (
 	"context"
 	"errors"
-	"log"
 	"sync"
 	"time"
 
+	"github.com/rs/zerolog/log"
+
 	"github.com/hashicorp/go-multierror"
+	"github.com/rs/zerolog"
 )
 
 // ErrBusClosed Cannot perform the action with a closed Bus.
@@ -20,7 +22,7 @@ type Bus struct {
 	Factories           Factories
 	SchemaRegistry      SchemaRegistry
 	Configuration       BusConfiguration
-	Logger              *log.Logger
+	Logger              zerolog.Logger
 	Addresses           []string
 	consumerMiddleware  []MiddlewareHandlerFunc
 	publisherMiddleware []MiddlewarePublisherFunc
@@ -75,7 +77,7 @@ func newBusDefaults() options {
 		consumerGroup:  "",
 		marshaler:      defaultMarshaler,
 		idFactory:      defaultIDFactory,
-		logger:         nil,
+		logger:         log.Logger,
 		driverConfig:   nil,
 		cluster:        nil,
 	}
@@ -338,5 +340,5 @@ func (b *Bus) Shutdown(ctx context.Context) error {
 }
 
 func (b *Bus) isLoggerEnabled() bool {
-	return b.Logger != nil
+	return true
 }

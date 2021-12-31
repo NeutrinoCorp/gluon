@@ -7,6 +7,8 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/rs/zerolog"
+
 	"github.com/google/uuid"
 	"github.com/neutrinocorp/gluon"
 	_ "github.com/neutrinocorp/gluon/gkafka"
@@ -58,7 +60,7 @@ func main() {
 }
 
 func newBus() *gluon.Bus {
-	logger := log.New(os.Stdout, "", 0)
+	logger := zerolog.New(os.Stderr).With().Timestamp().Logger()
 	bus := gluon.NewBus("kafka",
 		gluon.WithCluster("localhost:9092", "localhost:9093", "localhost:9094"),
 		gluon.WithMajorVersion(2),

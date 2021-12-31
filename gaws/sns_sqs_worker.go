@@ -39,7 +39,8 @@ func (s *snsSqsSubscriptionWorker) start(ctx context.Context, sub *gluon.Subscri
 				VisibilityTimeout:       s.parentDriver.config.GetVisibilityTimeout(),
 				WaitTimeSeconds:         s.parentDriver.config.GetWaitTimeSeconds(),
 			})
-			s.logError(err)
+			s.logError(gluon.NewError("SqsFailedPolling",
+				fmt.Sprintf("Failed to fetch from queue (%s)", queueUrl), err))
 			pollRetries := s.parentDriver.config.GetMaxBatchPollingRetries()
 			willCountFail := pollRetries > 0 && failedPollingCount+1 >= pollRetries
 			if err != nil && willCountFail {
@@ -69,8 +70,15 @@ func (s *snsSqsSubscriptionWorker) logError(err error) {
 		return
 	}
 
-	if s.parentDriver.parentBus.Logger != nil && s.parentDriver.isLoggingEnabled() {
-		s.parentDriver.parentBus.Logger.Print(err)
+	if s.parentDriver.isLoggingEnabled() {
+		if errG, ok := err.(gluon.Error); ok {
+			s.parentDriver.parentBus.Logger.Error().
+				Str("error_type", errG.Kind()).
+				Str("error_parent", errG.Parent().Error()).
+				Msg(errG.Description())
+			return
+		}
+		s.parentDriver.parentBus.Logger.Error().Msg(err.Error())
 	}
 }
 

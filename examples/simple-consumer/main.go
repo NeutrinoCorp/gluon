@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"os"
 	"os/signal"
 	"time"
@@ -11,6 +10,7 @@ import (
 	"github.com/neutrinocorp/gluon"
 	"github.com/neutrinocorp/gluon/glocal"
 	_ "github.com/neutrinocorp/gluon/glocal"
+	"github.com/rs/zerolog/log"
 )
 
 type ItemPaid struct {
@@ -44,7 +44,7 @@ func main() {
 	registerSubscribers(bus)
 	go func() {
 		if err := bus.ListenAndServe(); err != nil && err != gluon.ErrBusClosed {
-			log.Fatal(err)
+			log.Error().Err(err)
 		}
 	}()
 	go publishMessage(bus)
@@ -136,6 +136,6 @@ func gracefulShutdown(bus *gluon.Bus) {
 	defer cancel()
 
 	if err := bus.Shutdown(ctx); err != nil {
-		log.Fatal(err)
+		log.Error().Err(err)
 	}
 }
