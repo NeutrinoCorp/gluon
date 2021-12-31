@@ -31,3 +31,10 @@ func (e Error) Description() string {
 func (e Error) Parent() error {
 	return e.parentErr
 }
+
+func (e Error) ParentDescription() string {
+	if e.parentErr == nil {
+		return ""
+	}
+	return e.parentErr.Error()
+}

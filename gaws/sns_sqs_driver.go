@@ -99,7 +99,7 @@ func (d *snsSqsDriver) logError(err error) {
 		if errG, ok := err.(gluon.Error); ok {
 			d.parentBus.Logger.Error().
 				Str("error_type", errG.Kind()).
-				Str("error_parent", errG.Parent().Error()).
+				Str("error_parent", errG.ParentDescription()).
 				Msg(errG.Description())
 			return
 		}
